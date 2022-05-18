@@ -88,7 +88,7 @@
 #![cfg_attr(feature = "runtime-benchmarks", recursion_limit = "1024")]
 
 mod address;
-mod benchmarking;
+pub mod benchmarking;
 mod exec;
 mod gas;
 mod primitives;
@@ -223,6 +223,39 @@ pub struct ApiVersion(u16);
 impl Default for ApiVersion {
 	fn default() -> Self {
 		Self(1)
+	}
+}
+
+/// PolymeshHooks.
+///
+/// See [`DefaultPolymeshHooks`] for the default implementation.
+pub trait PolymeshHooks<T: frame_system::Config> {
+	fn check_call_permissions(
+		caller: &T::AccountId,
+	) -> frame_support::dispatch::DispatchResult;
+
+	fn on_instantiate_transfer(
+		caller: &T::AccountId,
+		contract: &T::AccountId,
+	) -> frame_support::dispatch::DispatchResult;
+}
+
+/// Default Polymesh hooks.
+///
+pub struct DefaultPolymeshHooks;
+
+impl<T: frame_system::Config> PolymeshHooks<T> for DefaultPolymeshHooks {
+	fn check_call_permissions(
+		_caller: &T::AccountId,
+	) -> frame_support::dispatch::DispatchResult {
+		Ok(())
+	}
+
+	fn on_instantiate_transfer(
+		_caller: &T::AccountId,
+		_contract: &T::AccountId,
+	) -> frame_support::dispatch::DispatchResult {
+		Ok(())
 	}
 }
 
@@ -427,6 +460,9 @@ pub mod pallet {
 			<Self as frame_system::Config>::RuntimeCall,
 			BlockNumberFor<Self>,
 		>;
+
+		/// Polymesh hooks.
+		type PolymeshHooks: PolymeshHooks<Self>;
 	}
 
 	#[pallet::hooks]
@@ -637,6 +673,8 @@ pub mod pallet {
 		) -> DispatchResult {
 			Migration::<T>::ensure_migrated()?;
 			let origin = ensure_signed(origin)?;
+			// POLYMESH code.
+			T::PolymeshHooks::check_call_permissions(&origin)?;
 			Self::bare_upload_code(origin, code, storage_deposit_limit.map(Into::into), determinism)
 				.map(|_| ())
 		}
@@ -653,6 +691,8 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			Migration::<T>::ensure_migrated()?;
 			let origin = ensure_signed(origin)?;
+			// POLYMESH code.
+			T::PolymeshHooks::check_call_permissions(&origin)?;
 			<WasmBlob<T>>::remove(&origin, code_hash)?;
 			// we waive the fee because removing unused code is beneficial
 			Ok(Pays::No.into())
@@ -734,6 +774,10 @@ pub mod pallet {
 				storage_deposit_limit: storage_deposit_limit.map(Into::into),
 				debug_message: None,
 			};
+			// POLYMESH code.
+      if let Origin::Signed(origin) = &common.origin {
+			  T::PolymeshHooks::check_call_permissions(origin)?;
+      }
 			let dest = T::Lookup::lookup(dest)?;
 			let mut output =
 				CallInput::<T> { dest, determinism: Determinism::Enforced }.run_guarded(common);
@@ -786,6 +830,8 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			Migration::<T>::ensure_migrated()?;
 			let origin = ensure_signed(origin)?;
+			// POLYMESH code.
+			T::PolymeshHooks::check_call_permissions(&origin)?;
 			let code_len = code.len() as u32;
 
 			let (module, upload_deposit) = Self::try_upload_code(
@@ -854,6 +900,10 @@ pub mod pallet {
 				storage_deposit_limit: storage_deposit_limit.map(Into::into),
 				debug_message: None,
 			};
+			// POLYMESH code.
+      if let Origin::Signed(origin) = &common.origin {
+			  T::PolymeshHooks::check_call_permissions(origin)?;
+      }
 			let mut output = InstantiateInput::<T> { code: WasmCode::CodeHash(code_hash), salt }
 				.run_guarded(common);
 			if let Ok(retval) = &output.result {
@@ -1685,6 +1735,14 @@ impl<T: Config> Pallet<T> {
 	/// zero or an old `Call` will just fail with OutOfGas.
 	fn compat_weight_limit(gas_limit: OldWeight) -> Weight {
 		Weight::from_parts(gas_limit, u64::from(T::MaxCodeLen::get()) * 2)
+	}
+
+	/// Transfer some funds from `from` to `to`.
+	pub fn on_instantiate_transfer(
+		caller: &T::AccountId,
+		contract: &T::AccountId,
+	) -> frame_support::dispatch::DispatchResult {
+		T::PolymeshHooks::on_instantiate_transfer(caller, contract)
 	}
 }
 

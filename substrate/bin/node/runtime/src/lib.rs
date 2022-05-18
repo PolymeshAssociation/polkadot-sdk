@@ -1369,6 +1369,7 @@ impl pallet_contracts::Config for Runtime {
 	type Environment = ();
 	type ApiVersion = ();
 	type Xcm = ();
+	type PolymeshHooks = pallet_contracts::DefaultPolymeshHooks;
 }
 
 impl pallet_sudo::Config for Runtime {
