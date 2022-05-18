@@ -1258,6 +1258,7 @@ impl pallet_contracts::Config for Runtime {
 	type Migrations = pallet_contracts::migration::codegen::BenchMigrations;
 	type MaxDelegateDependencies = ConstU32<32>;
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
+	type PolymeshHooks = pallet_contracts::DefaultPolymeshHooks;
 }
 
 impl pallet_sudo::Config for Runtime {

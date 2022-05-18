@@ -891,6 +891,10 @@ where
 				// Root origin can't be used to instantiate a contract, so it is safe to assume that
 				// if we reached this point the origin has an associated account.
 				let origin = &self.origin.account_id()?;
+				// POLYMESH code start.
+				let top_frame = self.top_frame();
+				<Contracts<T>>::on_instantiate_transfer(origin, &top_frame.account_id)?;
+				// POLYMESH code end.
 				let frame = top_frame_mut!(self);
 				frame.nested_storage.charge_instantiate(
 					origin,
