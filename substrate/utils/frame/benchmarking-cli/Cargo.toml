@@ -14,7 +14,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 array-bytes = "6.1"
-chrono = "0.4"
+chrono = { version = "0.4", default-features = false }
 clap = { version = "4.2.5", features = ["derive"] }
 codec = { package = "parity-scale-codec", version = "3.6.1" }
 comfy-table = { version = "7.0.0", default-features = false }
