@@ -92,6 +92,9 @@ where
 		let salt = vec![0xff];
 		let addr = Contracts::<T>::contract_address(&caller, &module.hash, &data, &salt);
 
+		// Required for linking the contract to a did
+		T::PolymeshHooks::register_did(caller.clone())?;
+
 		Contracts::<T>::store_code_raw(module.code, caller.clone())?;
 		Contracts::<T>::instantiate(
 			RawOrigin::Signed(caller.clone()).into(),
@@ -364,7 +367,11 @@ benchmarks! {
 		let input = vec![42u8; i as usize];
 		let salt = vec![42u8; s as usize];
 		let value = Pallet::<T>::min_balance();
-		let caller = whitelisted_caller();
+		let caller: T::AccountId = whitelisted_caller();
+
+		// Required for linking the contract to a did
+		T::PolymeshHooks::register_did(caller.clone())?;
+
 		T::Currency::make_free_balance_be(&caller, caller_funding::<T>());
 		let WasmModule { code, hash, .. } = WasmModule::<T>::sized(c, Location::Call);
 		let origin = RawOrigin::Signed(caller.clone());
@@ -393,7 +400,11 @@ benchmarks! {
 		let input = vec![42u8; i as usize];
 		let salt = vec![42u8; s as usize];
 		let value = Pallet::<T>::min_balance();
-		let caller = whitelisted_caller();
+		let caller: T::AccountId = whitelisted_caller();
+
+		// Required for linking the contract to a did
+		T::PolymeshHooks::register_did(caller.clone())?;
+
 		T::Currency::make_free_balance_be(&caller, caller_funding::<T>());
 		let WasmModule { code, hash, .. } = WasmModule::<T>::dummy();
 		let origin = RawOrigin::Signed(caller.clone());
@@ -451,7 +462,11 @@ benchmarks! {
 	#[pov_mode = Measured]
 	upload_code {
 		let c in 0 .. T::MaxCodeLen::get();
-		let caller = whitelisted_caller();
+		let caller: T::AccountId = whitelisted_caller();
+
+		// Required for linking the contract to a did
+		T::PolymeshHooks::register_did(caller.clone())?;
+
 		T::Currency::make_free_balance_be(&caller, caller_funding::<T>());
 		let WasmModule { code, hash, .. } = WasmModule::<T>::sized(c, Location::Call);
 		let origin = RawOrigin::Signed(caller.clone());
@@ -467,7 +482,11 @@ benchmarks! {
 	// item (`CodeInfoOf`).
 	#[pov_mode = Measured]
 	remove_code {
-		let caller = whitelisted_caller();
+		let caller: T::AccountId = whitelisted_caller();
+
+		// Required for linking the contract to a did
+		T::PolymeshHooks::register_did(caller.clone())?;
+
 		T::Currency::make_free_balance_be(&caller, caller_funding::<T>());
 		let WasmModule { code, hash, .. } = WasmModule::<T>::dummy();
 		let origin = RawOrigin::Signed(caller.clone());
@@ -848,6 +867,10 @@ benchmarks! {
 	seal_terminate {
 		let r in 0 .. 1;
 		let beneficiary = account::<T::AccountId>("beneficiary", 0, 0);
+
+		// Required for linking the beneficiary to a cdd
+		T::PolymeshHooks::register_did(beneficiary.clone())?;
+
 		let beneficiary_bytes = beneficiary.encode();
 		let beneficiary_len = beneficiary_bytes.len();
 
@@ -1639,7 +1662,12 @@ benchmarks! {
 	seal_transfer {
 		let r in 0 .. API_BENCHMARK_RUNS;
 		let accounts = (0..r)
-			.map(|i| account::<T::AccountId>("receiver", i, 0))
+			.map(|i| {
+				let account_id = account::<T::AccountId>("receiver", i, 0);
+				// Required for linking the receiver to a cdd
+				T::PolymeshHooks::register_did(account_id.clone()).unwrap();
+				account_id
+			})
 			.collect::<Vec<_>>();
 		let account_len = accounts.get(0).map(|i| i.encode().len()).unwrap_or(0);
 		let account_bytes = accounts.iter().flat_map(|x| x.encode()).collect();
