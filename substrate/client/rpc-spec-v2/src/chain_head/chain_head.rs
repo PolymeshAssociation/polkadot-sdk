@@ -254,9 +254,7 @@ where
 	next_hash.push(parent_hash);
 
 	while let Some(parent_hash) = next_hash.pop() {
-		let Ok(blocks) = backend.blockchain().children(parent_hash) else {
-			continue
-		};
+		let Ok(blocks) = backend.blockchain().children(parent_hash) else { continue };
 
 		for child_hash in blocks {
 			result.push((child_hash, parent_hash));
@@ -464,7 +462,11 @@ where
 		};
 
 		// Keep track of the subscription.
-		let Some((rx_stop, sub_handle)) = self.subscriptions.insert_subscription(sub_id.clone(), runtime_updates, self.max_pinned_blocks) else {
+		let Some((rx_stop, sub_handle)) = self.subscriptions.insert_subscription(
+			sub_id.clone(),
+			runtime_updates,
+			self.max_pinned_blocks,
+		) else {
 			// Inserting the subscription can only fail if the JsonRPSee
 			// generated a duplicate subscription ID.
 			debug!(target: "rpc-spec-v2", "[follow][id={:?}] Subscription already accepted", sub_id);
@@ -519,7 +521,9 @@ where
 		let client = self.client.clone();
 		let backend = self.backend.clone();
 		let fut = async move {
-			let Ok(initial_events) = generate_initial_events(&client, &backend, &sub_handle, runtime_updates) else {
+			let Ok(initial_events) =
+				generate_initial_events(&client, &backend, &sub_handle, runtime_updates)
+			else {
 				// Stop the subscription if we exceeded the maximum number of blocks pinned.
 				debug!(target: "rpc-spec-v2", "[follow][id={:?}] Exceeded max pinned blocks from initial events", sub_id);
 				let _ = sink.send(&FollowEvent::<Block::Hash>::Stop);

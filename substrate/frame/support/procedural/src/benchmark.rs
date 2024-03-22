@@ -183,11 +183,17 @@ impl BenchmarkDef {
 			// parse type
 			let typ = &*arg.ty;
 			let Type::Path(tpath) = typ else { return invalid_param(typ.span()) };
-			let Some(segment) = tpath.path.segments.last() else { return invalid_param(typ.span()) };
+			let Some(segment) = tpath.path.segments.last() else {
+				return invalid_param(typ.span())
+			};
 			let args = segment.arguments.to_token_stream().into();
 			let Ok(args) = syn::parse::<RangeArgs>(args) else { return invalid_param(typ.span()) };
-			let Ok(start) = args.start.base10_parse::<u32>() else { return invalid_param(args.start.span()) };
-			let Ok(end) = args.end.base10_parse::<u32>() else { return invalid_param(args.end.span()) };
+			let Ok(start) = args.start.base10_parse::<u32>() else {
+				return invalid_param(args.start.span())
+			};
+			let Ok(end) = args.end.base10_parse::<u32>() else {
+				return invalid_param(args.end.span())
+			};
 
 			if end < start {
 				return Err(Error::new(
@@ -681,13 +687,17 @@ fn expand_benchmark(
 			let call_name = match *expr_call.func {
 				Expr::Path(expr_path) => {
 					// normal function call
-					let Some(segment) = expr_path.path.segments.last() else { return call_err(); };
+					let Some(segment) = expr_path.path.segments.last() else {
+						return call_err();
+					};
 					segment.ident.to_string()
 				},
 				Expr::Verbatim(tokens) => {
 					// `_` style
 					// replace `_` with fn name
-					let Ok(_) = syn::parse::<Token![_]>(tokens.to_token_stream().into()) else { return call_err(); };
+					let Ok(_) = syn::parse::<Token![_]>(tokens.to_token_stream().into()) else {
+						return call_err();
+					};
 					name.to_string()
 				},
 				_ => return call_err(),
