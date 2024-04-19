@@ -92,7 +92,7 @@ where
 	SC: SelectChain<B> + Clone + 'static,
 {
 	async fn epoch_authorship(&self) -> RpcResult<HashMap<AuthorityId, EpochAuthorship>> {
-		self.deny_unsafe.check_if_safe()?;
+		// self.deny_unsafe.check_if_safe()?;
 		let header = self.select_chain.best_chain().map_err(Error::Consensus).await?;
 		let epoch_start = self
 			.client
