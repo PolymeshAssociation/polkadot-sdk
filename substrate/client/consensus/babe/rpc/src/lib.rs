@@ -117,14 +117,15 @@ where
 				.iter()
 				.enumerate()
 				.filter_map(|(i, a)| {
-					if SyncCryptoStore::has_keys(
-						&*self.keystore,
-						&[(a.0.to_raw_vec(), AuthorityId::ID)],
-					) {
-						Some((a.0.clone(), i))
-					} else {
-						None
-					}
+					Some((a.0.clone(), i))
+					// if SyncCryptoStore::has_keys(
+					// 	&*self.keystore,
+					// 	&[(a.0.to_raw_vec(), AuthorityId::ID)],
+					// ) {
+					// 	Some((a.0.clone(), i))
+					// } else {
+					// 	None
+					// }
 				})
 				.collect::<Vec<_>>()
 		};
