@@ -13,6 +13,10 @@ readme = "README.md"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
+polymesh-primitives = { git = "https://github.com/PolymeshAssociation/Polymesh", tag = "v6.2.1"  }
+polymesh-common-utilities = { path = "https://github.com/PolymeshAssociation/Polymesh", tag = "v6.2.1" }
+pallet-identity = { path = "https://github.com/PolymeshAssociation/Polymesh", tag = "v6.2.1" }
+
 serde = { version = "1.0.136", optional = true }
 codec = { package = "parity-scale-codec", version = "3.2.2", default-features = false, features = [
 	"derive",
