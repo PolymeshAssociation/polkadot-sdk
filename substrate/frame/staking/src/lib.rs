@@ -284,25 +284,19 @@
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
-#[cfg(any(feature = "runtime-benchmarks", test))]
+#[cfg(any(feature = "runtime-benchmarks"))]
 pub mod testing_utils;
 
-#[cfg(test)]
-pub(crate) mod mock;
-#[cfg(test)]
-mod tests;
-
 pub mod inflation;
-pub mod migrations;
 pub mod slashing;
+pub mod types;
 pub mod weights;
 
-mod pallet;
+pub mod pallet;
 
 use codec::{Decode, Encode, HasCompact, MaxEncodedLen};
 use frame_support::{
     traits::{Currency, Defensive, Get},
-    weights::Weight,
     BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
 };
 use scale_info::TypeInfo;
@@ -343,10 +337,10 @@ pub type RewardPoint = u32;
 /// The balance type of this pallet.
 pub type BalanceOf<T> = <T as Config>::CurrencyBalance;
 
-type PositiveImbalanceOf<T> = <<T as Config>::Currency as Currency<
+pub type PositiveImbalanceOf<T> = <<T as Config>::Currency as Currency<
     <T as frame_system::Config>::AccountId,
 >>::PositiveImbalance;
-type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
+pub type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
     <T as frame_system::Config>::AccountId,
 >>::NegativeImbalance;
 
@@ -464,10 +458,10 @@ pub struct ValidatorPrefs {
 pub struct UnlockChunk<Balance: HasCompact + MaxEncodedLen> {
     /// Amount of funds to be unlocked.
     #[codec(compact)]
-    value: Balance,
+    pub value: Balance,
     /// Era number at which point it'll be unlocked.
     #[codec(compact)]
-    era: EraIndex,
+    pub era: EraIndex,
 }
 
 /// The ledger of a (bonded) stash.
@@ -806,15 +800,15 @@ impl<AccountId, Balance: Default + HasCompact> Default for Exposure<AccountId, B
 #[derive(Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct UnappliedSlash<AccountId, Balance: HasCompact> {
     /// The stash ID of the offending validator.
-    validator: AccountId,
+    pub validator: AccountId,
     /// The validator's own slash.
-    own: Balance,
+    pub own: Balance,
     /// All other slashed stakers and amounts.
-    others: Vec<(AccountId, Balance)>,
+    pub others: Vec<(AccountId, Balance)>,
     /// Reporters of the offence; bounty payout recipients.
-    reporters: Vec<AccountId>,
+    pub reporters: Vec<AccountId>,
     /// The amount of payout.
-    payout: Balance,
+    pub payout: Balance,
 }
 
 impl<AccountId, Balance: HasCompact + Zero> UnappliedSlash<AccountId, Balance> {
@@ -892,6 +886,8 @@ pub trait EraPayout<Balance> {
         total_staked: Balance,
         total_issuance: Balance,
         era_duration_millis: u64,
+        max_inflated_issuance: Balance,
+        non_inflated_yearly_reward: Balance,
     ) -> (Balance, Balance);
 }
 
@@ -900,6 +896,8 @@ impl<Balance: Default> EraPayout<Balance> for () {
         _total_staked: Balance,
         _total_issuance: Balance,
         _era_duration_millis: u64,
+        _max_inflated_issuance: Balance,
+        _non_inflated_yearly_reward: Balance,
     ) -> (Balance, Balance) {
         (Default::default(), Default::default())
     }
@@ -908,6 +906,7 @@ impl<Balance: Default> EraPayout<Balance> for () {
 /// Adaptor to turn a `PiecewiseLinear` curve definition into an `EraPayout` impl, used for
 /// backwards compatibility.
 pub struct ConvertCurve<T>(sp_std::marker::PhantomData<T>);
+
 impl<Balance: AtLeast32BitUnsigned + Clone, T: Get<&'static PiecewiseLinear<'static>>>
     EraPayout<Balance> for ConvertCurve<T>
 {
@@ -915,6 +914,8 @@ impl<Balance: AtLeast32BitUnsigned + Clone, T: Get<&'static PiecewiseLinear<'sta
         total_staked: Balance,
         total_issuance: Balance,
         era_duration_millis: u64,
+        max_inflated_issuance: Balance,
+        non_inflated_yearly_reward: Balance,
     ) -> (Balance, Balance) {
         let (validator_payout, max_payout) = inflation::compute_total_payout(
             T::get(),
@@ -922,6 +923,8 @@ impl<Balance: AtLeast32BitUnsigned + Clone, T: Get<&'static PiecewiseLinear<'sta
             total_issuance,
             // Duration of era; more than u64::MAX is rewarded as u64::MAX.
             era_duration_millis,
+            max_inflated_issuance,
+            non_inflated_yearly_reward,
         );
         let rest = max_payout.saturating_sub(validator_payout.clone());
         (validator_payout, rest)
@@ -1022,6 +1025,19 @@ where
     }
 }
 
+pub struct OnStakerSlashMock<T: Config>(core::marker::PhantomData<T>);
+
+impl<T: Config> sp_staking::OnStakerSlash<T::AccountId, T::CurrencyBalance>
+    for OnStakerSlashMock<T>
+{
+    fn on_slash(
+        _pool_account: &T::AccountId,
+        _slashed_bonded: T::CurrencyBalance,
+        _slashed_chunks: &BTreeMap<EraIndex, T::CurrencyBalance>,
+    ) {
+    }
+}
+
 /// Configurations of the benchmarking of the pallet.
 pub trait BenchmarkingConfig {
     /// The maximum number of validators to use.
@@ -1033,11 +1049,9 @@ pub trait BenchmarkingConfig {
 /// A mock benchmarking config for pallet-staking.
 ///
 /// Should only be used for testing.
-#[cfg(feature = "std")]
-pub struct TestBenchmarkingConfig;
+pub struct SampleBenchmarkingConfig;
 
-#[cfg(feature = "std")]
-impl BenchmarkingConfig for TestBenchmarkingConfig {
+impl BenchmarkingConfig for SampleBenchmarkingConfig {
     type MaxValidators = frame_support::traits::ConstU32<100>;
     type MaxNominators = frame_support::traits::ConstU32<100>;
 }
