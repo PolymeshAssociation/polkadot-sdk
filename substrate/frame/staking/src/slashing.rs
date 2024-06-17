@@ -50,8 +50,8 @@
 //! Based on research at <https://research.web3.foundation/en/latest/polkadot/slashing/npos.html>
 
 use crate::{
-    BalanceOf, Config, Error, Exposure, NegativeImbalanceOf, Pallet, Perbill, SessionInterface,
-    Store, UnappliedSlash,
+    types::SlashingSwitch, BalanceOf, Config, Error, Exposure, NegativeImbalanceOf, Pallet,
+    Perbill, SessionInterface, SlashingAllowedFor, Store, UnappliedSlash,
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
@@ -75,11 +75,11 @@ pub type SpanIndex = u32;
 
 // A range of start..end eras for a slashing span.
 #[derive(Encode, Decode, TypeInfo)]
-#[cfg_attr(test, derive(Debug, PartialEq))]
-pub(crate) struct SlashingSpan {
-    pub(crate) index: SpanIndex,
-    pub(crate) start: EraIndex,
-    pub(crate) length: Option<EraIndex>, // the ongoing slashing span has indeterminate length.
+#[cfg_attr(feature = "std", derive(Debug, PartialEq))]
+pub struct SlashingSpan {
+    pub index: SpanIndex,
+    pub start: EraIndex,
+    pub length: Option<EraIndex>, // the ongoing slashing span has indeterminate length.
 }
 
 impl SlashingSpan {
@@ -135,7 +135,7 @@ impl SlashingSpans {
     }
 
     // an iterator over all slashing spans in _reverse_ order - most recent first.
-    pub(crate) fn iter(&'_ self) -> impl Iterator<Item = SlashingSpan> + '_ {
+    pub fn iter(&'_ self) -> impl Iterator<Item = SlashingSpan> + '_ {
         let mut last_start = self.last_start;
         let mut index = self.span_index;
         let last = SlashingSpan {
@@ -194,15 +194,14 @@ impl SlashingSpans {
 
 /// A slashing-span record for a particular stash.
 #[derive(Encode, Decode, Default, TypeInfo, MaxEncodedLen)]
-pub(crate) struct SpanRecord<Balance> {
+pub struct SpanRecord<Balance> {
     slashed: Balance,
     paid_out: Balance,
 }
 
 impl<Balance> SpanRecord<Balance> {
     /// The value of stash balance slashed in this span.
-    #[cfg(test)]
-    pub(crate) fn amount(&self) -> &Balance {
+    pub fn amount(&self) -> &Balance {
         &self.slashed
     }
 }
@@ -301,8 +300,14 @@ pub(crate) fn compute_slash<T: Config>(
     let disable_when_slashed = params.disable_strategy != DisableStrategy::Never;
     add_offending_validator::<T>(params.stash, disable_when_slashed);
 
+    // Polymesh change
+    // -----------------------------------------------------------------
     let mut nominators_slashed = Vec::new();
-    reward_payout += slash_nominators::<T>(params.clone(), prior_slash_p, &mut nominators_slashed);
+    if SlashingAllowedFor::<T>::get() == SlashingSwitch::ValidatorAndNominator {
+        reward_payout +=
+            slash_nominators::<T>(params.clone(), prior_slash_p, &mut nominators_slashed);
+    }
+    // -----------------------------------------------------------------
 
     Some(UnappliedSlash {
         validator: params.stash.clone(),
@@ -658,15 +663,20 @@ pub(crate) fn apply_slash<T: Config>(
         slash_era,
     );
 
-    for &(ref nominator, nominator_slash) in &unapplied_slash.others {
-        do_slash::<T>(
-            nominator,
-            nominator_slash,
-            &mut reward_payout,
-            &mut slashed_imbalance,
-            slash_era,
-        );
+    // Polymesh change
+    // -----------------------------------------------------------------
+    if SlashingAllowedFor::<T>::get() == SlashingSwitch::ValidatorAndNominator {
+        for &(ref nominator, nominator_slash) in &unapplied_slash.others {
+            do_slash::<T>(
+                nominator,
+                nominator_slash,
+                &mut reward_payout,
+                &mut slashed_imbalance,
+                slash_era,
+            );
+        }
     }
+    // -----------------------------------------------------------------
 
     pay_reporters::<T>(reward_payout, slashed_imbalance, &unapplied_slash.reporters);
 }
