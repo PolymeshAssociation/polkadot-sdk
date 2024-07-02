@@ -50,6 +50,20 @@ use crate::{
 
 use super::{pallet::*, STAKING_ID};
 
+// Polymesh change
+// -----------------------------------------------------------------
+
+use frame_support::traits::schedule::Anon;
+use frame_support::traits::schedule::{DispatchTime, HIGHEST_PRIORITY};
+use frame_support::traits::DefensiveSaturating;
+
+use polymesh_common_utilities::Context;
+use polymesh_primitives::IdentityId;
+
+use crate::pallet::SlashingSwitch;
+use crate::UnlockChunk;
+// -----------------------------------------------------------------
+
 /// The maximum number of iterations that we do whilst iterating over `T::VoterList` in
 /// `get_npos_voters`.
 ///
@@ -106,7 +120,7 @@ impl<T: Config> Pallet<T> {
         }
 
         let used_weight =
-            if ledger.unlocking.is_empty() && ledger.active < T::Currency::minimum_balance() {
+            if ledger.unlocking.is_empty() && ledger.active <= T::Currency::minimum_balance() {
                 // This account must have called `unbond()` with some value that caused the active
                 // portion to fall below existential deposit + will have no more unlocking chunks
                 // left. We can now safely remove all staking-related information.
@@ -114,13 +128,13 @@ impl<T: Config> Pallet<T> {
                 // Remove the lock.
                 T::Currency::remove_lock(STAKING_ID, &stash);
 
-                T::WeightInfo::withdraw_unbonded_kill(num_slashing_spans)
+                <T as Config>::WeightInfo::withdraw_unbonded_kill(num_slashing_spans)
             } else {
                 // This was the consequence of a partial unbond. just update the ledger and move on.
                 Self::update_ledger(&controller, &ledger);
 
                 // This is only an update, so we use less overall weight.
-                T::WeightInfo::withdraw_unbonded_update(num_slashing_spans)
+                <T as Config>::WeightInfo::withdraw_unbonded_update(num_slashing_spans)
             };
 
         // `old_total` should never be less than the new total because
@@ -144,24 +158,25 @@ impl<T: Config> Pallet<T> {
         // Validate input data
         let current_era = CurrentEra::<T>::get().ok_or_else(|| {
             Error::<T>::InvalidEraToReward
-                .with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
+                .with_weight(<T as Config>::WeightInfo::payout_stakers_alive_staked(0))
         })?;
         let history_depth = T::HistoryDepth::get();
         ensure!(
             era <= current_era && era >= current_era.saturating_sub(history_depth),
             Error::<T>::InvalidEraToReward
-                .with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
+                .with_weight(<T as Config>::WeightInfo::payout_stakers_alive_staked(0))
         );
 
         // Note: if era has no reward to be claimed, era may be future. better not to update
         // `ledger.claimed_rewards` in this case.
         let era_payout = <ErasValidatorReward<T>>::get(&era).ok_or_else(|| {
             Error::<T>::InvalidEraToReward
-                .with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
+                .with_weight(<T as Config>::WeightInfo::payout_stakers_alive_staked(0))
         })?;
 
         let controller = Self::bonded(&validator_stash).ok_or_else(|| {
-            Error::<T>::NotStash.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
+            Error::<T>::NotStash
+                .with_weight(<T as Config>::WeightInfo::payout_stakers_alive_staked(0))
         })?;
         let mut ledger = <Ledger<T>>::get(&controller).ok_or(Error::<T>::NotController)?;
 
@@ -172,7 +187,7 @@ impl<T: Config> Pallet<T> {
         match ledger.claimed_rewards.binary_search(&era) {
             Ok(_) => {
                 return Err(Error::<T>::AlreadyClaimed
-                    .with_weight(T::WeightInfo::payout_stakers_alive_staked(0)))
+                    .with_weight(<T as Config>::WeightInfo::payout_stakers_alive_staked(0)))
             }
             Err(pos) => ledger
                 .claimed_rewards
@@ -206,7 +221,7 @@ impl<T: Config> Pallet<T> {
 
         // Nothing to do if they have no reward points.
         if validator_reward_points.is_zero() {
-            return Ok(Some(T::WeightInfo::payout_stakers_alive_staked(0)).into());
+            return Ok(Some(<T as Config>::WeightInfo::payout_stakers_alive_staked(0)).into());
         }
 
         // This is the fraction of the total reward that the validator and the
@@ -238,7 +253,13 @@ impl<T: Config> Pallet<T> {
             &ledger.stash,
             validator_staking_payout + validator_commission_payout,
         ) {
+            // Polymesh change
+            // -----------------------------------------------------------------
+            let stash_did =
+                pallet_identity::Module::<T>::get_identity(&ledger.stash).unwrap_or_default();
+            // -----------------------------------------------------------------
             Self::deposit_event(Event::<T>::Rewarded {
+                identity: stash_did,
                 stash: ledger.stash,
                 amount: imbalance.peek(),
             });
@@ -261,7 +282,13 @@ impl<T: Config> Pallet<T> {
             if let Some(imbalance) = Self::make_payout(&nominator.who, nominator_reward) {
                 // Note: this logic does not count payouts for `RewardDestination::None`.
                 nominator_payout_count += 1;
+                // Polymesh change
+                // -----------------------------------------------------------------
+                let nominator_did =
+                    pallet_identity::Module::<T>::get_identity(&nominator.who).unwrap_or_default();
+                // -----------------------------------------------------------------
                 let e = Event::<T>::Rewarded {
+                    identity: nominator_did,
                     stash: nominator.who.clone(),
                     amount: imbalance.peek(),
                 };
@@ -272,7 +299,7 @@ impl<T: Config> Pallet<T> {
 
         T::Reward::on_unbalanced(total_imbalance);
         debug_assert!(nominator_payout_count <= T::MaxNominatorRewardedPerValidator::get());
-        Ok(Some(T::WeightInfo::payout_stakers_alive_staked(
+        Ok(Some(<T as Config>::WeightInfo::payout_stakers_alive_staked(
             nominator_payout_count,
         ))
         .into())
@@ -293,6 +320,10 @@ impl<T: Config> Pallet<T> {
 
     /// Chill a stash account.
     pub(crate) fn chill_stash(stash: &T::AccountId) {
+        // Polymesh change
+        // -----------------------------------------------------------------
+        Self::release_running_validator(stash);
+        // -----------------------------------------------------------------
         let chilled_as_validator = Self::do_remove_validator(stash);
         let chilled_as_nominator = Self::do_remove_nominator(stash);
         if chilled_as_validator || chilled_as_nominator {
@@ -464,8 +495,52 @@ impl<T: Config> Pallet<T> {
             let era_duration = (now_as_millis_u64 - active_era_start).saturated_into::<u64>();
             let staked = Self::eras_total_stake(&active_era.index);
             let issuance = T::Currency::total_issuance();
-            let (validator_payout, remainder) =
-                T::EraPayout::era_payout(staked, issuance, era_duration);
+            let (validator_payout, remainder) = T::EraPayout::era_payout(
+                staked,
+                issuance,
+                era_duration,
+                T::MaxVariableInflationTotalIssuance::get(),
+                T::FixedYearlyReward::get(),
+            );
+
+            // Polymesh change
+            // -----------------------------------------------------------------
+            // Schedule rewards
+            let next_block_number = <frame_system::Pallet<T>>::block_number() + 1u32.into();
+            for (index, validator_id) in T::SessionInterface::validators().into_iter().enumerate() {
+                let schedule_block_number =
+                    next_block_number + index.saturated_into::<T::BlockNumber>();
+                match T::RewardScheduler::schedule(
+                    DispatchTime::At(schedule_block_number),
+                    None,
+                    HIGHEST_PRIORITY,
+                    RawOrigin::Root.into(),
+                    Call::<T>::payout_stakers_by_system {
+                        validator_stash: validator_id.clone(),
+                        era: active_era.index,
+                    }.into()
+                ) {
+                    Ok(_) => log!(
+                        info,
+                        "💸 Rewards are successfully scheduled for validator id: {:?} at block number: {:?}",
+                        &validator_id,
+                        schedule_block_number,
+                    ),
+                    Err(error) => {
+                        log!(
+                            error,
+                            "⛔ Detected error in scheduling the reward payment: {:?}",
+                            error
+                        );
+                        Self::deposit_event(Event::<T>::RewardPaymentSchedulingInterrupted {
+                            account_id: validator_id,
+                            era: active_era.index,
+                            error
+                        });
+                    }
+                }
+            }
+            // -----------------------------------------------------------------
 
             Self::deposit_event(Event::<T>::EraPaid {
                 era_index: active_era.index,
@@ -677,7 +752,7 @@ impl<T: Config> Pallet<T> {
     /// This is called:
     /// - after a `withdraw_unbonded()` call that frees all of a stash's bonded balance.
     /// - through `reap_stash()` if the balance has fallen to zero (through slashing).
-    pub(crate) fn kill_stash(stash: &T::AccountId, num_slashing_spans: u32) -> DispatchResult {
+    pub fn kill_stash(stash: &T::AccountId, num_slashing_spans: u32) -> DispatchResult {
         let controller = <Bonded<T>>::get(stash).ok_or(Error::<T>::NotStash)?;
 
         slashing::clear_stash_metadata::<T>(stash, num_slashing_spans)?;
@@ -746,7 +821,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Helper to set a new `ForceEra` mode.
-    pub(crate) fn set_force_era(mode: Forcing) {
+    pub fn set_force_era(mode: Forcing) {
         log!(info, "Setting force era mode {:?}.", mode);
         ForceEra::<T>::put(mode);
         Self::deposit_event(Event::<T>::ForceEra { mode });
@@ -853,7 +928,7 @@ impl<T: Config> Pallet<T> {
         // all_voters should have not re-allocated.
         debug_assert!(all_voters.capacity() == max_allowed_len);
 
-        Self::register_weight(T::WeightInfo::get_npos_voters(
+        Self::register_weight(<T as Config>::WeightInfo::get_npos_voters(
             validators_taken,
             nominators_taken,
         ));
@@ -902,7 +977,9 @@ impl<T: Config> Pallet<T> {
             }
         }
 
-        Self::register_weight(T::WeightInfo::get_npos_targets(all_targets.len() as u32));
+        Self::register_weight(<T as Config>::WeightInfo::get_npos_targets(
+            all_targets.len() as u32,
+        ));
         log!(info, "generated {} npos targets", all_targets.len());
 
         all_targets
@@ -1009,6 +1086,139 @@ impl<T: Config> Pallet<T> {
             DispatchClass::Mandatory,
         );
     }
+
+    // Polymesh change
+    // -----------------------------------------------------------------
+    pub(crate) fn get_bonding_duration_period() -> u64 {
+        (T::SessionsPerEra::get()  * T::BondingDuration::get()) as u64 // total session
+            * T::EpochDuration::get() // session length
+            * T::ExpectedBlockTime::get().saturated_into::<u64>()
+    }
+
+    /// Decrease the running count of validators by 1 for the stash identity.
+    pub(crate) fn release_running_validator(stash: &T::AccountId) {
+        if !<Validators<T>>::contains_key(stash) {
+            return;
+        }
+
+        if let Some(did) = pallet_identity::Module::<T>::get_identity(stash) {
+            PermissionedIdentity::<T>::mutate(&did, |preferences| {
+                if let Some(p) = preferences {
+                    if p.running_count > 0 {
+                        p.running_count -= 1;
+                        pallet_identity::Module::<T>::remove_account_key_ref_count(&stash);
+                    }
+                }
+            });
+        }
+    }
+
+    /// Returns the maximum number of validators per identiy
+    pub fn maximum_number_of_validators_per_identity() -> u32 {
+        (T::MaxValidatorPerIdentity::get() * Self::validator_count()).max(1)
+    }
+
+    pub fn unbond_balance(
+        controller_account: T::AccountId,
+        ledger: &mut StakingLedger<T>,
+        value: BalanceOf<T>,
+    ) -> DispatchResult {
+        let mut value = value.min(ledger.active);
+
+        if !value.is_zero() {
+            ledger.active -= value;
+
+            // Avoid there being a dust balance left in the staking system.
+            if ledger.active < T::Currency::minimum_balance() {
+                value += ledger.active;
+                ledger.active = Zero::zero();
+            }
+
+            let min_active_bond = if Nominators::<T>::contains_key(&ledger.stash) {
+                MinNominatorBond::<T>::get()
+            } else if Validators::<T>::contains_key(&ledger.stash) {
+                MinValidatorBond::<T>::get()
+            } else {
+                Zero::zero()
+            };
+
+            // Make sure that the user maintains enough active bond for their role.
+            // If a user runs into this error, they should chill first.
+            ensure!(
+                ledger.active >= min_active_bond,
+                Error::<T>::InsufficientBond
+            );
+
+            // Note: in case there is no current era it is fine to bond one era more.
+            let era = Self::current_era().unwrap_or(0) + T::BondingDuration::get();
+            if let Some(chunk) = ledger.unlocking.last_mut().filter(|chunk| chunk.era == era) {
+                // To keep the chunk count down, we only keep one chunk per era. Since
+                // `unlocking` is a FiFo queue, if a chunk exists for `era` we know that it will
+                // be the last one.
+                chunk.value = chunk.value.defensive_saturating_add(value)
+            } else {
+                ledger
+                    .unlocking
+                    .try_push(UnlockChunk { value, era })
+                    .map_err(|_| Error::<T>::NoMoreChunks)?;
+            };
+            // NOTE: ledger must be updated prior to calling `Self::weight_of`.
+            Self::update_ledger(&controller_account, &ledger);
+
+            // update this staker in the sorted list, if they exist in it.
+            if T::VoterList::contains(&ledger.stash) {
+                let _ = T::VoterList::on_update(&ledger.stash, Self::weight_of(&ledger.stash))
+                    .defensive();
+            }
+
+            // Polymesh change
+            // -----------------------------------------------------------------
+            let controller_did = Context::current_identity::<T::IdentityFn>().unwrap_or_default();
+            Self::deposit_event(Event::<T>::Unbonded {
+                identity: controller_did,
+                stash: ledger.stash.clone(),
+                amount: value,
+            });
+            // -----------------------------------------------------------------
+        }
+
+        Ok(())
+    }
+
+    pub(crate) fn base_chill_from_governance(
+        origin: T::RuntimeOrigin,
+        identity: IdentityId,
+        stash_keys: Vec<T::AccountId>,
+    ) -> DispatchResult {
+        T::AdminOrigin::ensure_origin(origin)?;
+
+        // Checks that the identity is allowed to run operator/validator nodes.
+        ensure!(
+            Self::permissioned_identity(&identity).is_some(),
+            Error::<T>::IdentityNotFound
+        );
+
+        for key in &stash_keys {
+            let key_did = pallet_identity::Module::<T>::get_identity(&key);
+            // Checks if the stash key identity is the same as the identity given.
+            ensure!(key_did == Some(identity), Error::<T>::NotStash);
+            // Checks if the key is a validator if not returns an error.
+            ensure!(
+                <Validators<T>>::contains_key(&key),
+                Error::<T>::ValidatorNotFound
+            );
+        }
+
+        for key in stash_keys {
+            Self::chill_stash(&key);
+        }
+
+        // Change identity status to be Non-Permissioned
+        PermissionedIdentity::<T>::remove(&identity);
+        Ok(())
+    }
+
+    // -----------------------------------------------------------------
 }
 
 impl<T: Config> Pallet<T> {
@@ -1322,6 +1532,16 @@ where
         slash_session: SessionIndex,
         disable_strategy: DisableStrategy,
     ) -> Weight {
+        // Polymesh change
+        // -----------------------------------------------------------------
+        let slash_fraction_none = vec![Perbill::from_parts(0); slash_fraction.len()];
+        let slash_fraction = if SlashingAllowedFor::<T>::get() == SlashingSwitch::None {
+            slash_fraction_none.as_slice()
+        } else {
+            slash_fraction
+        };
+        // -----------------------------------------------------------------
+
         let reward_proportion = SlashRewardFraction::<T>::get();
         let mut consumed_weight = Weight::from_ref_time(0);
         let mut add_db_reads_writes = |reads, writes| {
@@ -1761,9 +1981,9 @@ impl<T: Config> StakingInterface for Pallet<T> {
     }
 }
 
-#[cfg(any(test, feature = "try-runtime"))]
+#[cfg(feature = "std")]
 impl<T: Config> Pallet<T> {
-    pub(crate) fn do_try_state(_: BlockNumberFor<T>) -> Result<(), &'static str> {
+    pub fn do_try_state(_: BlockNumberFor<T>) -> Result<(), &'static str> {
         ensure!(
             T::VoterList::iter()
                 .all(|x| <Nominators<T>>::contains_key(&x) || <Validators<T>>::contains_key(&x)),
