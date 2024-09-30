@@ -114,8 +114,8 @@ fn default_byte_getter(
 
 		#[cfg(feature = "std")]
 		#[allow(non_upper_case_globals)]
-		static #cache_name: ::core::sync::OnceLock<#scrate::sp_std::vec::Vec<u8>> =
-			::core::sync::OnceLock::new();
+		static #cache_name: ::std::sync::OnceLock<#scrate::sp_std::vec::Vec<u8>> =
+			::std::sync::OnceLock::new();
 
 		#[cfg(feature = "std")]
 		impl<#runtime_generic: #runtime_trait, #optional_instance_bound>
