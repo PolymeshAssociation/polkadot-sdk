@@ -33,6 +33,7 @@ pub mod offchain;
 pub mod bench;
 
 mod children;
+#[cfg(feature = "paritydb")]
 mod parity_db;
 mod pinned_blocks_cache;
 mod record_stats_state;
@@ -333,6 +334,7 @@ pub enum DatabaseSource {
 	},
 
 	/// Load a ParityDb database from a given path.
+	#[cfg(feature = "paritydb")]
 	ParityDb {
 		/// Path to the database.
 		path: PathBuf,
@@ -359,6 +361,7 @@ impl DatabaseSource {
 			DatabaseSource::Auto { paritydb_path, .. } => Some(paritydb_path),
 			#[cfg(feature = "rocksdb")]
 			DatabaseSource::RocksDb { path, .. } => Some(path),
+			#[cfg(feature = "paritydb")]
 			DatabaseSource::ParityDb { path } => Some(path),
 			DatabaseSource::Custom { .. } => None,
 		}
@@ -376,6 +379,7 @@ impl DatabaseSource {
 				*path = p.into();
 				true
 			},
+			#[cfg(feature = "paritydb")]
 			DatabaseSource::ParityDb { ref mut path } => {
 				*path = p.into();
 				true
@@ -391,6 +395,7 @@ impl std::fmt::Display for DatabaseSource {
 			DatabaseSource::Auto { .. } => "Auto",
 			#[cfg(feature = "rocksdb")]
 			DatabaseSource::RocksDb { .. } => "RocksDb",
+			#[cfg(feature = "paritydb")]
 			DatabaseSource::ParityDb { .. } => "ParityDb",
 			DatabaseSource::Custom { .. } => "Custom",
 		};
