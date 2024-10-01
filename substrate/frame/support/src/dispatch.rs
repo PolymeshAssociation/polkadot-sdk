@@ -1811,10 +1811,10 @@ macro_rules! decl_module {
 		fn on_initialize() -> $return:ty { $( $impl:tt )* }
 	) => {
 		impl<$trait_instance: $system::Config + $trait_name$(<I>, $instance: $instantiable)?>
-			$crate::traits::OnInitialize<<$trait_instance as $system::Config>::BlockNumber>
+			$crate::traits::OnInitialize<$system::pallet_prelude::BlockNumberFor<$trait_instance>>
 			for $module<$trait_instance$(, $instance)?> where $( $other_where_bounds )*
 		{
-			fn on_initialize(_block_number_not_used: <$trait_instance as $system::Config>::BlockNumber) -> $return {
+			fn on_initialize(_block_number_not_used: $system::pallet_prelude::BlockNumberFor<$trait_instance>) -> $return {
 				$crate::sp_tracing::enter_span!($crate::sp_tracing::trace_span!("on_initialize"));
 				{ $( $impl )* }
 			}
@@ -1828,7 +1828,7 @@ macro_rules! decl_module {
 		fn on_initialize($param:ident : $param_ty:ty) -> $return:ty { $( $impl:tt )* }
 	) => {
 		impl<$trait_instance: $system::Config + $trait_name$(<I>, $instance: $instantiable)?>
-			$crate::traits::OnInitialize<<$trait_instance as $system::Config>::BlockNumber>
+			$crate::traits::OnInitialize<$system::pallet_prelude::BlockNumberFor<$trait_instance>>
 			for $module<$trait_instance$(, $instance)?> where $( $other_where_bounds )*
 		{
 			fn on_initialize($param: $param_ty) -> $return {
@@ -1844,7 +1844,7 @@ macro_rules! decl_module {
 		{ $( $other_where_bounds:tt )* }
 	) => {
 		impl<$trait_instance: $system::Config + $trait_name$(<I>, $instance: $instantiable)?>
-			$crate::traits::OnInitialize<<$trait_instance as $system::Config>::BlockNumber>
+			$crate::traits::OnInitialize<$system::pallet_prelude::BlockNumberFor<$trait_instance>>
 			for $module<$trait_instance$(, $instance)?> where $( $other_where_bounds )*
 		{}
 	};
@@ -1856,11 +1856,11 @@ macro_rules! decl_module {
 	) => {
 		#[cfg(feature = "try-runtime")]
 		impl<$trait_instance: $system::Config + $trait_name$(<I>, $instance: $instantiable)?>
-			$crate::traits::TryState<<$trait_instance as $system::Config>::BlockNumber>
+			$crate::traits::TryState<$system::pallet_prelude::BlockNumberFor<$trait_instance>>
 			for $module<$trait_instance$(, $instance)?> where $( $other_where_bounds )*
 		{
 			fn try_state(
-				_: <$trait_instance as $system::Config>::BlockNumber,
+				_: $system::pallet_prelude::BlockNumberFor<$trait_instance>,
 				_: $crate::traits::TryStateSelect,
 			) -> Result<(), $crate::sp_runtime::TryRuntimeError> {
 				let pallet_name = <<
@@ -1994,10 +1994,10 @@ macro_rules! decl_module {
 		fn on_finalize() { $( $impl:tt )* }
 	) => {
 		impl<$trait_instance: $system::Config + $trait_name$(<I>, $instance: $instantiable)?>
-			$crate::traits::OnFinalize<<$trait_instance as $system::Config>::BlockNumber>
+			$crate::traits::OnFinalize<$system::pallet_prelude::BlockNumberFor<$trait_instance>>
 			for $module<$trait_instance$(, $instance)?> where $( $other_where_bounds )*
 		{
-			fn on_finalize(_block_number_not_used: <$trait_instance as $system::Config>::BlockNumber) {
+			fn on_finalize(_block_number_not_used: $system::pallet_prelude::BlockNumberFor<$trait_instance>) {
 				$crate::sp_tracing::enter_span!($crate::sp_tracing::trace_span!("on_finalize"));
 				{ $( $impl )* }
 			}
@@ -2011,7 +2011,7 @@ macro_rules! decl_module {
 		fn on_finalize($param:ident : $param_ty:ty) { $( $impl:tt )* }
 	) => {
 		impl<$trait_instance: $system::Config + $trait_name$(<I>, $instance: $instantiable)?>
-			$crate::traits::OnFinalize<<$trait_instance as $system::Config>::BlockNumber>
+			$crate::traits::OnFinalize<$system::pallet_prelude::BlockNumberFor<$trait_instance>>
 			for $module<$trait_instance$(, $instance)?> where $( $other_where_bounds )*
 		{
 			fn on_finalize($param: $param_ty) {
@@ -2027,7 +2027,7 @@ macro_rules! decl_module {
 		{ $( $other_where_bounds:tt )* }
 	) => {
 		impl<$trait_instance: $system::Config + $trait_name$(<I>, $instance: $instantiable)?>
-			$crate::traits::OnFinalize<<$trait_instance as $system::Config>::BlockNumber>
+			$crate::traits::OnFinalize<$system::pallet_prelude::BlockNumberFor<$trait_instance>>
 			for $module<$trait_instance$(, $instance)?> where $( $other_where_bounds )*
 		{
 		}
@@ -2040,7 +2040,7 @@ macro_rules! decl_module {
 		fn on_idle($param1:ident : $param1_ty:ty, $param2:ident: $param2_ty:ty) -> $return:ty { $( $impl:tt )* }
 	) => {
 		impl<$trait_instance: $system::Config + $trait_name$(<I>, $instance: $instantiable)?>
-			$crate::traits::OnIdle<<$trait_instance as $system::Config>::BlockNumber>
+			$crate::traits::OnIdle<$system::pallet_prelude::BlockNumberFor<$trait_instance>>
 			for $module<$trait_instance$(, $instance)?> where $( $other_where_bounds )*
 		{
 			fn on_idle($param1: $param1_ty, $param2: $param2_ty) -> $return {
@@ -2056,7 +2056,7 @@ macro_rules! decl_module {
 		{ $( $other_where_bounds:tt )* }
 	) => {
 		impl<$trait_instance: $system::Config + $trait_name$(<I>, $instance: $instantiable)?>
-			$crate::traits::OnIdle<<$trait_instance as $system::Config>::BlockNumber>
+			$crate::traits::OnIdle<$system::pallet_prelude::BlockNumberFor<$trait_instance>>
 			for $module<$trait_instance$(, $instance)?> where $( $other_where_bounds )*
 		{
 		}
@@ -2069,10 +2069,10 @@ macro_rules! decl_module {
 		fn offchain_worker() { $( $impl:tt )* }
 	) => {
 		impl<$trait_instance: $system::Config + $trait_name$(<I>, $instance: $instantiable)?>
-			$crate::traits::OffchainWorker<<$trait_instance as $system::Config>::BlockNumber>
+			$crate::traits::OffchainWorker<$system::pallet_prelude::BlockNumberFor<$trait_instance>>
 			for $module<$trait_instance$(, $instance)?> where $( $other_where_bounds )*
 		{
-			fn offchain_worker(_block_number_not_used: <$trait_instance as $system::Config>::BlockNumber) { $( $impl )* }
+			fn offchain_worker(_block_number_not_used: $system::pallet_prelude::BlockNumberFor<$trait_instance>) { $( $impl )* }
 		}
 	};
 
@@ -2083,7 +2083,7 @@ macro_rules! decl_module {
 		fn offchain_worker($param:ident : $param_ty:ty) { $( $impl:tt )* }
 	) => {
 		impl<$trait_instance: $system::Config + $trait_name$(<I>, $instance: $instantiable)?>
-			$crate::traits::OffchainWorker<<$trait_instance as $system::Config>::BlockNumber>
+			$crate::traits::OffchainWorker<$system::pallet_prelude::BlockNumberFor<$trait_instance>>
 			for $module<$trait_instance$(, $instance)?> where $( $other_where_bounds )*
 		{
 			fn offchain_worker($param: $param_ty) { $( $impl )* }
@@ -2096,7 +2096,7 @@ macro_rules! decl_module {
 		{ $( $other_where_bounds:tt )* }
 	) => {
 		impl<$trait_instance: $system::Config + $trait_name$(<I>, $instance: $instantiable)?>
-			$crate::traits::OffchainWorker<<$trait_instance as $system::Config>::BlockNumber>
+			$crate::traits::OffchainWorker<$system::pallet_prelude::BlockNumberFor<$trait_instance>>
 			for $module<$trait_instance$(, $instance)?> where $( $other_where_bounds )*
 		{}
 	};
@@ -2975,6 +2975,7 @@ mod tests {
 			OnInitialize, OnRuntimeUpgrade, PalletInfo,
 		},
 	};
+	use sp_runtime::{generic, traits::BlakeTwo256};
 	use sp_weights::{RuntimeDbWeight, Weight};
 
 	pub trait Config: system::Config + Sized
@@ -2987,11 +2988,12 @@ mod tests {
 		use super::*;
 
 		pub trait Config: 'static {
+			type Block: Parameter + sp_runtime::traits::Block;
+      type OldBlockNumber: Into<u32>;
 			type AccountId;
 			type RuntimeCall;
 			type BaseCallFilter;
 			type RuntimeOrigin: crate::traits::OriginTrait<Call = Self::RuntimeCall>;
-			type BlockNumber: Into<u32>;
 			type PalletInfo: crate::traits::PalletInfo;
 			type DbWeight: Get<RuntimeDbWeight>;
 		}
@@ -2999,7 +3001,18 @@ mod tests {
 		pub use super::super::RawOrigin;
 
 		pub type Origin<T> = RawOrigin<<T as Config>::AccountId>;
+
+		pub mod pallet_prelude {
+			pub type OriginFor<T> = <T as super::Config>::RuntimeOrigin;
+
+			pub type HeaderFor<T> =
+				<<T as super::Config>::Block as sp_runtime::traits::HeaderProvider>::HeaderT;
+
+			//pub type BlockNumberFor<T> = <HeaderFor<T> as sp_runtime::traits::Header>::Number;
+			pub type BlockNumberFor<T> = <T as super::Config>::OldBlockNumber;
+		}
 	}
+  use system::pallet_prelude::*;
 
 	decl_module! {
 		pub struct Module<T: Config> for enum Call where origin: T::RuntimeOrigin, system = system, T::AccountId: From<u32> {
@@ -3025,12 +3038,12 @@ mod tests {
 			#[weight = (5, DispatchClass::Operational)]
 			fn operational(_origin) { unreachable!() }
 
-			fn on_initialize(n: T::BlockNumber,) -> Weight { if n.into() == 42 { panic!("on_initialize") } Weight::from_parts(7, 0) }
-			fn on_idle(n: T::BlockNumber, remaining_weight: Weight,) -> Weight {
+			fn on_initialize(n: BlockNumberFor<T>,) -> Weight { if n.into() == 42 { panic!("on_initialize") } Weight::from_parts(7, 0) }
+			fn on_idle(n: BlockNumberFor<T>, remaining_weight: Weight,) -> Weight {
 				if n.into() == 42 || remaining_weight == Weight::from_parts(42, 0)  { panic!("on_idle") }
 				Weight::from_parts(7, 0)
 			}
-			fn on_finalize(n: T::BlockNumber,) { if n.into() == 42 { panic!("on_finalize") } }
+			fn on_finalize(n: BlockNumberFor<T>,) { if n.into() == 42 { panic!("on_finalize") } }
 			fn on_runtime_upgrade() -> Weight { Weight::from_parts(10, 0) }
 			fn offchain_worker() {}
 			/// Some doc
@@ -3153,12 +3166,21 @@ mod tests {
 		}
 	}
 
+	type BlockNumber = u32;
+	type AccountId = u32;
+	type Balance = u32;
+  type RuntimeCall = ();
+	type Header = generic::Header<BlockNumber, BlakeTwo256>;
+	type UncheckedExtrinsic = generic::UncheckedExtrinsic<u32, RuntimeCall, (), ()>;
+	type Block = generic::Block<Header, UncheckedExtrinsic>;
+
 	impl system::Config for TraitImpl {
+		type Block = Block;
+		type OldBlockNumber = BlockNumber;
 		type RuntimeOrigin = OuterOrigin;
 		type AccountId = u32;
 		type RuntimeCall = ();
 		type BaseCallFilter = frame_support::traits::Everything;
-		type BlockNumber = u32;
 		type PalletInfo = Self;
 		type DbWeight = ();
 	}
