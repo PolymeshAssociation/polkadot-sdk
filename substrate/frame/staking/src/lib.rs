@@ -284,7 +284,7 @@
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
-#[cfg(any(feature = "runtime-benchmarks", test))]
+#[cfg(any(feature = "testing", test))]
 pub mod testing_utils;
 
 #[cfg(test)]
@@ -297,7 +297,7 @@ pub mod migrations;
 pub mod slashing;
 pub mod weights;
 
-mod pallet;
+pub mod pallet;
 
 use codec::{Decode, Encode, HasCompact, MaxEncodedLen};
 use frame_support::{
@@ -323,6 +323,87 @@ pub use pallet::{pallet::*, UseNominatorsAndValidatorsMap, UseValidatorsMap};
 
 pub(crate) const LOG_TARGET: &str = "runtime::staking";
 
+// Polymesh changes:
+// -----------------------------------------------------------
+use frame_support::dispatch::DispatchResult;
+
+/// A trait used by the staking pallet for permissioned staking.
+///
+/// A permissioned Substrate network can be configured to allow only a set of
+/// identities to participate in staking. This trait is used to define the
+/// behavior of the staking pallet in such a network.
+pub trait PermissionedStaking<T: Config> {
+	/// Onboard an account.
+	#[cfg(any(feature = "testing", test))]
+	fn onboard_account(_who: &T::AccountId) {}
+
+	/// Permission a validator.
+	#[cfg(any(feature = "testing", test))]
+	fn permission_validator(_who: &T::AccountId) {}
+
+	/// Setup stash and controller.
+	#[cfg(any(feature = "runtime-benchmarks", test))]
+	fn setup_stash_and_controller(_stash: &T::AccountId, _controller: &T::AccountId) {}
+
+	/// Check if amount is under the existential deposit.
+	fn reapable(amount: BalanceOf<T>) -> bool {
+		amount < T::Currency::minimum_balance()
+	}
+
+	/// On validate hook.
+	fn on_validate(_who: &T::AccountId, _commission: Perbill) -> DispatchResult {
+		Ok(())
+	}
+
+	/// On chill hook.
+	fn on_chill(_who: &T::AccountId) {}
+
+	/// On nominate hook.
+	fn on_nominate(_who: &T::AccountId) -> DispatchResult {
+		Ok(())
+	}
+
+	/// Is the validator still compliant?
+	fn is_validator_compliant(_who: &T::AccountId) -> bool {
+		true
+	}
+
+	/// Is the nominator still compliant?
+	fn is_nominator_compliant(_who: &T::AccountId) -> bool {
+		true
+	}
+
+	/// Schedule reward payouts.
+	fn schedule_payouts(_active_era: &ActiveEraInfo) {}
+
+	/// Who should be slashed?
+	fn who_to_slash() -> Option<WhoToSlash> {
+		Some(WhoToSlash::ValidatorAndNominator)
+	}
+
+	/// Is slashing enabled?
+	fn is_slashing_enabled() -> bool {
+		Self::who_to_slash().is_some()
+	}
+
+	/// Slash nominators?
+	fn slash_nominators() -> bool {
+		Self::who_to_slash() == Some(WhoToSlash::ValidatorAndNominator)
+	}
+}
+
+impl<T: Config> PermissionedStaking<T> for () {}
+
+/// Who should be slashed.
+#[derive(Clone, Copy, Eq, PartialEq)]
+pub enum WhoToSlash {
+	/// Allow validators but not nominators to get slashed.
+	Validator,
+	/// Allow both validators and nominators to get slashed.
+	ValidatorAndNominator,
+}
+// -----------------------------------------------------------
+
 // syntactic sugar for logging.
 #[macro_export]
 macro_rules! log {
@@ -344,10 +425,10 @@ pub type RewardPoint = u32;
 /// The balance type of this pallet.
 pub type BalanceOf<T> = <T as Config>::CurrencyBalance;
 
-type PositiveImbalanceOf<T> = <<T as Config>::Currency as Currency<
+pub type PositiveImbalanceOf<T> = <<T as Config>::Currency as Currency<
 	<T as frame_system::Config>::AccountId,
 >>::PositiveImbalance;
-type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
+pub type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
 	<T as frame_system::Config>::AccountId,
 >>::NegativeImbalance;
 
@@ -421,10 +502,10 @@ pub struct ValidatorPrefs {
 pub struct UnlockChunk<Balance: HasCompact + MaxEncodedLen> {
 	/// Amount of funds to be unlocked.
 	#[codec(compact)]
-	value: Balance,
+	pub value: Balance,
 	/// Era number at which point it'll be unlocked.
 	#[codec(compact)]
-	era: EraIndex,
+	pub era: EraIndex,
 }
 
 /// The ledger of a (bonded) stash.
@@ -725,15 +806,15 @@ impl<AccountId, Balance: Default + HasCompact> Default for Exposure<AccountId, B
 #[derive(Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct UnappliedSlash<AccountId, Balance: HasCompact> {
 	/// The stash ID of the offending validator.
-	validator: AccountId,
+	pub validator: AccountId,
 	/// The validator's own slash.
-	own: Balance,
+	pub own: Balance,
 	/// All other slashed stakers and amounts.
-	others: Vec<(AccountId, Balance)>,
+	pub others: Vec<(AccountId, Balance)>,
 	/// Reporters of the offence; bounty payout recipients.
-	reporters: Vec<AccountId>,
+	pub reporters: Vec<AccountId>,
 	/// The amount of payout.
-	payout: Balance,
+	pub payout: Balance,
 }
 
 impl<AccountId, Balance: HasCompact + Zero> UnappliedSlash<AccountId, Balance> {
@@ -949,10 +1030,8 @@ pub trait BenchmarkingConfig {
 /// A mock benchmarking config for pallet-staking.
 ///
 /// Should only be used for testing.
-#[cfg(feature = "std")]
 pub struct TestBenchmarkingConfig;
 
-#[cfg(feature = "std")]
 impl BenchmarkingConfig for TestBenchmarkingConfig {
 	type MaxValidators = frame_support::traits::ConstU32<100>;
 	type MaxNominators = frame_support::traits::ConstU32<100>;
