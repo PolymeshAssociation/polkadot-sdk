@@ -304,6 +304,7 @@ impl crate::pallet::pallet::Config for Test {
 	type OnStakerSlash = OnStakerSlashMock<Test>;
 	type BenchmarkingConfig = TestBenchmarkingConfig;
 	type WeightInfo = ();
+	type Permissioned = ();
 }
 
 pub(crate) type StakingCall = crate::Call<Test>;
