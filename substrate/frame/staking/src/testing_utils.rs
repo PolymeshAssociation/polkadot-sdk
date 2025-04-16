@@ -34,6 +34,27 @@ use sp_std::prelude::*;
 
 const SEED: u32 = 0;
 
+// Polymesh change
+// -----------------------------------------------------------------
+use crate::PermissionedStaking;
+
+pub fn add_permissioned_validator_<T: Config>(stash: &T::AccountId) {
+	Staking::<T>::set_validator_count(RawOrigin::Root.into(), 10)
+		.expect("Failed to set the validator count");
+	T::Permissioned::permission_validator(stash);
+}
+
+pub fn minimum_balance<T: Config>() -> T::CurrencyBalance {
+	T::Currency::minimum_balance().max(1u32.into())
+}
+
+/// Create a DID for account `acc` using the specified investor ID.
+pub fn onboard_account<T: Config>(acc: &T::AccountId) {
+	T::Permissioned::onboard_account(acc);
+}
+
+// ----------------------------------------------------------------
+
 /// This function removes all validators and nominators from storage.
 pub fn clear_validators_and_nominators<T: Config>() {
 	#[allow(deprecated)]
@@ -54,7 +75,8 @@ pub fn create_funded_user<T: Config>(
 	balance_factor: u32,
 ) -> T::AccountId {
 	let user = account(string, n, SEED);
-	let balance = T::Currency::minimum_balance() * balance_factor.into();
+	onboard_account::<T>(&user);
+	let balance = minimum_balance::<T>() * balance_factor.into();
 	let _ = T::Currency::make_free_balance_be(&user, balance);
 	user
 }
@@ -66,6 +88,7 @@ pub fn create_funded_user_with_balance<T: Config>(
 	balance: BalanceOf<T>,
 ) -> T::AccountId {
 	let user = account(string, n, SEED);
+	onboard_account::<T>(&user);
 	let _ = T::Currency::make_free_balance_be(&user, balance);
 	user
 }
@@ -79,7 +102,7 @@ pub fn create_stash_controller<T: Config>(
 	let stash = create_funded_user::<T>("stash", n, balance_factor);
 	let controller = create_funded_user::<T>("controller", n, balance_factor);
 	let controller_lookup = T::Lookup::unlookup(controller.clone());
-	let amount = T::Currency::minimum_balance() * (balance_factor / 10).max(1).into();
+	let amount = minimum_balance::<T>() * (balance_factor / 10).max(1).into();
 	Staking::<T>::bond(
 		RawOrigin::Signed(stash.clone()).into(),
 		controller_lookup,
@@ -119,7 +142,7 @@ pub fn create_stash_and_dead_controller<T: Config>(
 	// controller has no funds
 	let controller = create_funded_user::<T>("controller", n, 0);
 	let controller_lookup = T::Lookup::unlookup(controller.clone());
-	let amount = T::Currency::minimum_balance() * (balance_factor / 10).max(1).into();
+	let amount = minimum_balance::<T>() * (balance_factor / 10).max(1).into();
 	Staking::<T>::bond(
 		RawOrigin::Signed(stash.clone()).into(),
 		controller_lookup,
@@ -149,6 +172,7 @@ pub fn create_validators_with_seed<T: Config>(
 			create_stash_controller::<T>(i + seed, balance_factor, RewardDestination::Staked)?;
 		let validator_prefs =
 			ValidatorPrefs { commission: Perbill::from_percent(50), ..Default::default() };
+		add_permissioned_validator_::<T>(&stash);
 		Staking::<T>::validate(RawOrigin::Signed(controller).into(), validator_prefs)?;
 		let stash_lookup = T::Lookup::unlookup(stash);
 		validators.push(stash_lookup);
@@ -190,6 +214,7 @@ pub fn create_validators_with_nominators_for_era<T: Config>(
 			create_stash_controller::<T>(i, balance_factor, RewardDestination::Staked)?;
 		let validator_prefs =
 			ValidatorPrefs { commission: Perbill::from_percent(50), ..Default::default() };
+		add_permissioned_validator_::<T>(&v_stash);
 		Staking::<T>::validate(RawOrigin::Signed(v_controller.clone()).into(), validator_prefs)?;
 		let stash_lookup = T::Lookup::unlookup(v_stash.clone());
 		validators_stash.push(stash_lookup.clone());
