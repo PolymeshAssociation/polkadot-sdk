@@ -50,6 +50,12 @@ use crate::{
 
 use super::{pallet::*, STAKING_ID};
 
+// Polymesh change
+// -----------------------------------------------------------------
+use crate::{PermissionedStaking, UnlockChunk};
+use frame_support::traits::DefensiveSaturating;
+// -----------------------------------------------------------------
+
 /// The maximum number of iterations that we do whilst iterating over `T::VoterList` in
 /// `get_npos_voters`.
 ///
@@ -102,23 +108,25 @@ impl<T: Config> Pallet<T> {
 			ledger = ledger.consolidate_unlocked(current_era)
 		}
 
-		let used_weight =
-			if ledger.unlocking.is_empty() && ledger.active < T::Currency::minimum_balance() {
-				// This account must have called `unbond()` with some value that caused the active
-				// portion to fall below existential deposit + will have no more unlocking chunks
-				// left. We can now safely remove all staking-related information.
-				Self::kill_stash(&stash, num_slashing_spans)?;
-				// Remove the lock.
-				T::Currency::remove_lock(STAKING_ID, &stash);
+		// Polymesh change:
+		//   use T::Permissioned::reapable(amount)
+		let used_weight = if ledger.unlocking.is_empty() && T::Permissioned::reapable(ledger.active)
+		{
+			// This account must have called `unbond()` with some value that caused the active
+			// portion to fall below existential deposit + will have no more unlocking chunks
+			// left. We can now safely remove all staking-related information.
+			Self::kill_stash(&stash, num_slashing_spans)?;
+			// Remove the lock.
+			T::Currency::remove_lock(STAKING_ID, &stash);
 
-				T::WeightInfo::withdraw_unbonded_kill(num_slashing_spans)
-			} else {
-				// This was the consequence of a partial unbond. just update the ledger and move on.
-				Self::update_ledger(&controller, &ledger);
+			T::WeightInfo::withdraw_unbonded_kill(num_slashing_spans)
+		} else {
+			// This was the consequence of a partial unbond. just update the ledger and move on.
+			Self::update_ledger(&controller, &ledger);
 
-				// This is only an update, so we use less overall weight.
-				T::WeightInfo::withdraw_unbonded_update(num_slashing_spans)
-			};
+			// This is only an update, so we use less overall weight.
+			T::WeightInfo::withdraw_unbonded_update(num_slashing_spans)
+		};
 
 		// `old_total` should never be less than the new total because
 		// `consolidate_unlocked` strictly subtracts balance.
@@ -131,7 +139,7 @@ impl<T: Config> Pallet<T> {
 		Ok(used_weight)
 	}
 
-	pub(super) fn do_payout_stakers(
+	pub fn do_payout_stakers(
 		validator_stash: T::AccountId,
 		era: EraIndex,
 	) -> DispatchResultWithPostInfo {
@@ -268,13 +276,17 @@ impl<T: Config> Pallet<T> {
 	/// Update the ledger for a controller.
 	///
 	/// This will also update the stash lock.
-	pub(crate) fn update_ledger(controller: &T::AccountId, ledger: &StakingLedger<T>) {
+	pub fn update_ledger(controller: &T::AccountId, ledger: &StakingLedger<T>) {
 		T::Currency::set_lock(STAKING_ID, &ledger.stash, ledger.total, WithdrawReasons::all());
 		<Ledger<T>>::insert(controller, ledger);
 	}
 
 	/// Chill a stash account.
-	pub(crate) fn chill_stash(stash: &T::AccountId) {
+	pub fn chill_stash(stash: &T::AccountId) {
+		// Polymesh change
+		// -----------------------------------------------------------------
+		T::Permissioned::on_chill(stash);
+		// -----------------------------------------------------------------
 		let chilled_as_validator = Self::do_remove_validator(stash);
 		let chilled_as_nominator = Self::do_remove_nominator(stash);
 		if chilled_as_validator || chilled_as_nominator {
@@ -444,6 +456,12 @@ impl<T: Config> Pallet<T> {
 			let (validator_payout, remainder) =
 				T::EraPayout::era_payout(staked, issuance, era_duration);
 
+			// Polymesh change
+			// -----------------------------------------------------------------
+			// Schedule rewards
+			T::Permissioned::schedule_payouts(&active_era);
+			// -----------------------------------------------------------------
+
 			Self::deposit_event(Event::<T>::EraPaid {
 				era_index: active_era.index,
 				validator_payout,
@@ -496,7 +514,7 @@ impl<T: Config> Pallet<T> {
 	/// In case election result has more than [`MinimumValidatorCount`] validator trigger a new era.
 	///
 	/// In case a new era is planned, the new validator set is returned.
-	pub(crate) fn try_trigger_new_era(
+	pub fn try_trigger_new_era(
 		start_session_index: SessionIndex,
 		is_genesis: bool,
 	) -> Option<BoundedVec<T::AccountId, MaxWinnersOf<T>>> {
@@ -649,7 +667,7 @@ impl<T: Config> Pallet<T> {
 	/// This is called:
 	/// - after a `withdraw_unbonded()` call that frees all of a stash's bonded balance.
 	/// - through `reap_stash()` if the balance has fallen to zero (through slashing).
-	pub(crate) fn kill_stash(stash: &T::AccountId, num_slashing_spans: u32) -> DispatchResult {
+	pub fn kill_stash(stash: &T::AccountId, num_slashing_spans: u32) -> DispatchResult {
 		let controller = <Bonded<T>>::get(stash).ok_or(Error::<T>::NotStash)?;
 
 		slashing::clear_stash_metadata::<T>(stash, num_slashing_spans)?;
@@ -718,7 +736,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Helper to set a new `ForceEra` mode.
-	pub(crate) fn set_force_era(mode: Forcing) {
+	pub fn set_force_era(mode: Forcing) {
 		log!(info, "Setting force era mode {:?}.", mode);
 		ForceEra::<T>::put(mode);
 		Self::deposit_event(Event::<T>::ForceEra { mode });
@@ -766,8 +784,8 @@ impl<T: Config> Pallet<T> {
 		let weight_of = Self::weight_of_fn();
 
 		let mut voters_seen = 0u32;
-		let mut validators_taken = 0u32;
-		let mut nominators_taken = 0u32;
+		let mut validators_seen = 0u32;
+		let mut nominators_seen = 0u32;
 		let mut min_active_stake = u64::MAX;
 
 		let mut sorted_voters = T::VoterList::iter();
@@ -783,26 +801,33 @@ impl<T: Config> Pallet<T> {
 			};
 
 			if let Some(Nominations { targets, .. }) = <Nominators<T>>::get(&voter) {
-				let voter_weight = weight_of(&voter);
-				if !targets.is_empty() {
-					all_voters.push((voter.clone(), voter_weight, targets));
-					nominators_taken.saturating_inc();
-				} else {
-					// Technically should never happen, but not much we can do about it.
+				nominators_seen.saturating_inc();
+				// Polymesh change: check if the nominator is compliant
+				if T::Permissioned::is_nominator_compliant(&voter) {
+					let voter_weight = weight_of(&voter);
+					if !targets.is_empty() {
+						all_voters.push((voter.clone(), voter_weight, targets));
+					}
+					min_active_stake = if voter_weight < min_active_stake {
+						voter_weight
+					} else {
+						min_active_stake
+					};
 				}
-				min_active_stake =
-					if voter_weight < min_active_stake { voter_weight } else { min_active_stake };
 			} else if Validators::<T>::contains_key(&voter) {
-				// if this voter is a validator:
-				let self_vote = (
-					voter.clone(),
-					weight_of(&voter),
-					vec![voter.clone()]
-						.try_into()
-						.expect("`MaxVotesPerVoter` must be greater than or equal to 1"),
-				);
-				all_voters.push(self_vote);
-				validators_taken.saturating_inc();
+				validators_seen.saturating_inc();
+				// Polymesh change: check if the validator is compliant
+				if T::Permissioned::is_validator_compliant(&voter) {
+					// if this voter is a validator:
+					let self_vote = (
+						voter.clone(),
+						weight_of(&voter),
+						vec![voter.clone()]
+							.try_into()
+							.expect("`MaxVotesPerVoter` must be greater than or equal to 1"),
+					);
+					all_voters.push(self_vote);
+				}
 			} else {
 				// this can only happen if: 1. there a bug in the bags-list (or whatever is the
 				// sorted list) logic and the state of the two pallets is no longer compatible, or
@@ -820,7 +845,7 @@ impl<T: Config> Pallet<T> {
 		// all_voters should have not re-allocated.
 		debug_assert!(all_voters.capacity() == max_allowed_len);
 
-		Self::register_weight(T::WeightInfo::get_npos_voters(validators_taken, nominators_taken));
+		Self::register_weight(T::WeightInfo::get_npos_voters(validators_seen, nominators_seen));
 
 		let min_active_stake: T::CurrencyBalance =
 			if all_voters.len() == 0 { 0u64.into() } else { min_active_stake.into() };
@@ -831,8 +856,8 @@ impl<T: Config> Pallet<T> {
 			info,
 			"generated {} npos voters, {} from validators and {} nominators",
 			all_voters.len(),
-			validators_taken,
-			nominators_taken
+			validators_seen,
+			nominators_seen
 		);
 
 		all_voters
@@ -845,6 +870,7 @@ impl<T: Config> Pallet<T> {
 		let max_allowed_len = maybe_max_len.unwrap_or_else(|| T::TargetList::count() as usize);
 		let mut all_targets = Vec::<T::AccountId>::with_capacity(max_allowed_len);
 		let mut targets_seen = 0;
+		let mut validators_seen = 0;
 
 		let mut targets_iter = T::TargetList::iter();
 		while all_targets.len() < max_allowed_len &&
@@ -859,11 +885,15 @@ impl<T: Config> Pallet<T> {
 			};
 
 			if Validators::<T>::contains_key(&target) {
-				all_targets.push(target);
+				validators_seen.saturating_inc();
+				// Polymesh change: check if the validator is compliant
+				if T::Permissioned::is_validator_compliant(&target) {
+					all_targets.push(target);
+				}
 			}
 		}
 
-		Self::register_weight(T::WeightInfo::get_npos_targets(all_targets.len() as u32));
+		Self::register_weight(T::WeightInfo::get_npos_targets(validators_seen));
 		log!(info, "generated {} npos targets", all_targets.len());
 
 		all_targets
@@ -969,6 +999,65 @@ impl<T: Config> Pallet<T> {
 			weight,
 			DispatchClass::Mandatory,
 		);
+	}
+
+	pub fn unbond_balance(
+		controller_account: T::AccountId,
+		ledger: &mut StakingLedger<T>,
+		value: BalanceOf<T>,
+	) -> DispatchResult {
+		let mut value = value.min(ledger.active);
+
+		if !value.is_zero() {
+			ledger.active -= value;
+
+			// Avoid there being a dust balance left in the staking system.
+			if ledger.active < T::Currency::minimum_balance() {
+				value += ledger.active;
+				ledger.active = Zero::zero();
+			}
+
+			let min_active_bond = if Nominators::<T>::contains_key(&ledger.stash) {
+				MinNominatorBond::<T>::get()
+			} else if Validators::<T>::contains_key(&ledger.stash) {
+				MinValidatorBond::<T>::get()
+			} else {
+				Zero::zero()
+			};
+
+			// Make sure that the user maintains enough active bond for their role.
+			// If a user runs into this error, they should chill first.
+			ensure!(ledger.active >= min_active_bond, Error::<T>::InsufficientBond);
+
+			// Note: in case there is no current era it is fine to bond one era more.
+			let era = Self::current_era().unwrap_or(0) + T::BondingDuration::get();
+			if let Some(chunk) = ledger.unlocking.last_mut().filter(|chunk| chunk.era == era) {
+				// To keep the chunk count down, we only keep one chunk per era. Since
+				// `unlocking` is a FiFo queue, if a chunk exists for `era` we know that it will
+				// be the last one.
+				chunk.value = chunk.value.defensive_saturating_add(value)
+			} else {
+				ledger
+					.unlocking
+					.try_push(UnlockChunk { value, era })
+					.map_err(|_| Error::<T>::NoMoreChunks)?;
+			};
+			// NOTE: ledger must be updated prior to calling `Self::weight_of`.
+			Self::update_ledger(&controller_account, &ledger);
+
+			// update this staker in the sorted list, if they exist in it.
+			if T::VoterList::contains(&ledger.stash) {
+				let _ = T::VoterList::on_update(&ledger.stash, Self::weight_of(&ledger.stash))
+					.defensive();
+			}
+
+			Self::deposit_event(Event::<T>::Unbonded {
+				stash: ledger.stash.clone(),
+				amount: value,
+			});
+		}
+
+		Ok(())
 	}
 }
 
@@ -1266,6 +1355,16 @@ where
 		slash_session: SessionIndex,
 		disable_strategy: DisableStrategy,
 	) -> Weight {
+		// Polymesh change
+		// -----------------------------------------------------------------
+		let slash_fraction_none = vec![Perbill::from_parts(0); slash_fraction.len()];
+		let slash_fraction = if T::Permissioned::is_slashing_enabled() {
+			slash_fraction
+		} else {
+			slash_fraction_none.as_slice()
+		};
+		// -----------------------------------------------------------------
+
 		let reward_proportion = SlashRewardFraction::<T>::get();
 		let mut consumed_weight = Weight::from_ref_time(0);
 		let mut add_db_reads_writes = |reads, writes| {
@@ -1476,8 +1575,8 @@ impl<T: Config> SortedListProvider<T::AccountId> for UseValidatorsMap<T> {
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	fn score_update_worst_case(_who: &T::AccountId, _is_increase: bool) -> Self::Score {
-		unimplemented!()
+	fn score_update_worst_case(who: &T::AccountId, _is_increase: bool) -> Self::Score {
+		(Pallet::<T>::weight_of(who) + 1_000).into()
 	}
 }
 
@@ -1557,8 +1656,8 @@ impl<T: Config> SortedListProvider<T::AccountId> for UseNominatorsAndValidatorsM
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	fn score_update_worst_case(_who: &T::AccountId, _is_increase: bool) -> Self::Score {
-		unimplemented!()
+	fn score_update_worst_case(who: &T::AccountId, _is_increase: bool) -> Self::Score {
+		(Pallet::<T>::weight_of(who) + 1_000).into()
 	}
 }
 
@@ -1686,9 +1785,9 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	}
 }
 
-#[cfg(any(test, feature = "try-runtime"))]
+#[cfg(feature = "std")]
 impl<T: Config> Pallet<T> {
-	pub(crate) fn do_try_state(_: BlockNumberFor<T>) -> Result<(), &'static str> {
+	pub fn do_try_state(_: BlockNumberFor<T>) -> Result<(), &'static str> {
 		ensure!(
 			T::VoterList::iter()
 				.all(|x| <Nominators<T>>::contains_key(&x) || <Validators<T>>::contains_key(&x)),
