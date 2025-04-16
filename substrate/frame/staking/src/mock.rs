@@ -293,6 +293,7 @@ impl crate::pallet::pallet::Config for Test {
 	type EventListeners = EventListenerMock;
 	type BenchmarkingConfig = TestBenchmarkingConfig;
 	type WeightInfo = ();
+	type Permissioned = ();
 }
 
 pub struct WeightedNominationsQuota<const MAX: u32>;

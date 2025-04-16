@@ -16,6 +16,7 @@
 // limitations under the License.
 
 //! Tests for the module.
+#![cfg_attr(rustfmt, rustfmt_skip)]
 
 use super::{ConfigOp, Event, *};
 use crate::ledger::StakingLedgerInspect;
@@ -5571,12 +5572,14 @@ fn chill_other_works() {
 		.min_nominator_bond(1_000)
 		.min_validator_bond(1_500)
 		.build_and_execute(|| {
+			// Valid messing with existing validators and nominators.
+			let base = 200;
 			let initial_validators = Validators::<Test>::count();
 			let initial_nominators = Nominators::<Test>::count();
 			for i in 0..15 {
-				let a = 4 * i;
-				let b = 4 * i + 2;
-				let c = 4 * i + 3;
+				let a = base + 4 * i;
+				let b = base + 4 * i + 2;
+				let c = base + 4 * i + 3;
 				Balances::make_free_balance_be(&a, 100_000);
 				Balances::make_free_balance_be(&b, 100_000);
 				Balances::make_free_balance_be(&c, 100_000);
@@ -5600,11 +5603,11 @@ fn chill_other_works() {
 
 			// Can't chill these users
 			assert_noop!(
-				Staking::chill_other(RuntimeOrigin::signed(1337), 0),
+				Staking::chill_other(RuntimeOrigin::signed(1337), base + 0),
 				Error::<Test>::CannotChillOther
 			);
 			assert_noop!(
-				Staking::chill_other(RuntimeOrigin::signed(1337), 2),
+				Staking::chill_other(RuntimeOrigin::signed(1337), base + 2),
 				Error::<Test>::CannotChillOther
 			);
 
@@ -5622,11 +5625,11 @@ fn chill_other_works() {
 
 			// Still can't chill these users
 			assert_noop!(
-				Staking::chill_other(RuntimeOrigin::signed(1337), 0),
+				Staking::chill_other(RuntimeOrigin::signed(1337), base + 0),
 				Error::<Test>::CannotChillOther
 			);
 			assert_noop!(
-				Staking::chill_other(RuntimeOrigin::signed(1337), 2),
+				Staking::chill_other(RuntimeOrigin::signed(1337), base + 2),
 				Error::<Test>::CannotChillOther
 			);
 
@@ -5644,11 +5647,11 @@ fn chill_other_works() {
 
 			// Still can't chill these users
 			assert_noop!(
-				Staking::chill_other(RuntimeOrigin::signed(1337), 0),
+				Staking::chill_other(RuntimeOrigin::signed(1337), base + 0),
 				Error::<Test>::CannotChillOther
 			);
 			assert_noop!(
-				Staking::chill_other(RuntimeOrigin::signed(1337), 2),
+				Staking::chill_other(RuntimeOrigin::signed(1337), base + 2),
 				Error::<Test>::CannotChillOther
 			);
 
@@ -5666,11 +5669,11 @@ fn chill_other_works() {
 
 			// Still can't chill these users
 			assert_noop!(
-				Staking::chill_other(RuntimeOrigin::signed(1337), 0),
+				Staking::chill_other(RuntimeOrigin::signed(1337), base + 0),
 				Error::<Test>::CannotChillOther
 			);
 			assert_noop!(
-				Staking::chill_other(RuntimeOrigin::signed(1337), 2),
+				Staking::chill_other(RuntimeOrigin::signed(1337), base + 2),
 				Error::<Test>::CannotChillOther
 			);
 
@@ -5693,8 +5696,8 @@ fn chill_other_works() {
 			// Users can now be chilled down to 7 people, so we try to remove 9 of them (starting
 			// with 16)
 			for i in 6..15 {
-				let b = 4 * i;
-				let d = 4 * i + 2;
+				let b = base + 4 * i;
+				let d = base + 4 * i + 2;
 				assert_ok!(Staking::chill_other(RuntimeOrigin::signed(1337), b));
 				assert_ok!(Staking::chill_other(RuntimeOrigin::signed(1337), d));
 			}
@@ -5702,12 +5705,12 @@ fn chill_other_works() {
 			// chill a nominator. Limit is not reached, not chill-able
 			assert_eq!(Nominators::<Test>::count(), 7);
 			assert_noop!(
-				Staking::chill_other(RuntimeOrigin::signed(1337), 0),
+				Staking::chill_other(RuntimeOrigin::signed(1337), base + 0),
 				Error::<Test>::CannotChillOther
 			);
 			// chill a validator. Limit is reached, chill-able.
 			assert_eq!(Validators::<Test>::count(), 9);
-			assert_ok!(Staking::chill_other(RuntimeOrigin::signed(1337), 2));
+			assert_ok!(Staking::chill_other(RuntimeOrigin::signed(1337), base + 2));
 		})
 }
 

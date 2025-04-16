@@ -24,8 +24,8 @@ use frame_election_provider_support::{
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
-		Currency, Defensive, DefensiveSaturating, EnsureOrigin, EstimateNextNewSession, Get,
-		LockableCurrency, OnUnbalanced, UnixTime,
+		Currency, Defensive, EnsureOrigin, EstimateNextNewSession, Get, LockableCurrency,
+		OnUnbalanced, UnixTime,
 	},
 	weights::Weight,
 	BoundedVec,
@@ -50,8 +50,13 @@ use crate::{
 	slashing, weights::WeightInfo, AccountIdLookupOf, ActiveEraInfo, BalanceOf, EraPayout,
 	EraRewardPoints, Exposure, ExposurePage, Forcing, MaxNominationsOf, NegativeImbalanceOf,
 	Nominations, NominationsQuota, PositiveImbalanceOf, RewardDestination, SessionInterface,
-	StakingLedger, UnappliedSlash, UnlockChunk, ValidatorPrefs,
+	StakingLedger, UnappliedSlash, ValidatorPrefs,
 };
+
+// Polymesh change
+// -----------------------------------------------------------------
+use crate::PermissionedStaking;
+// -----------------------------------------------------------------
 
 // The speculative number of spans are used as an input of the weight annotation of
 // [`Call::unbond`], as the post dipatch weight may depend on the number of slashing span on the
@@ -283,6 +288,13 @@ pub mod pallet {
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
+
+		// Polymesh change
+		// -----------------------------------------------------------------
+
+		/// Permissioned staking.
+		type Permissioned: PermissionedStaking<Self>;
+		// -----------------------------------------------------------------
 	}
 
 	/// The ideal number of active validators.
@@ -600,13 +612,12 @@ pub mod pallet {
 	/// `[active_era - bounding_duration; active_era]`
 	#[pallet::storage]
 	#[pallet::unbounded]
-	pub(crate) type BondedEras<T: Config> =
-		StorageValue<_, Vec<(EraIndex, SessionIndex)>, ValueQuery>;
+	pub type BondedEras<T: Config> = StorageValue<_, Vec<(EraIndex, SessionIndex)>, ValueQuery>;
 
 	/// All slashing events on validators, mapped by era to the highest slash proportion
 	/// and slash value of the era.
 	#[pallet::storage]
-	pub(crate) type ValidatorSlashInEra<T: Config> = StorageDoubleMap<
+	pub type ValidatorSlashInEra<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
 		EraIndex,
@@ -617,7 +628,7 @@ pub mod pallet {
 
 	/// All slashing events on nominators, mapped by era to the highest slash value of the era.
 	#[pallet::storage]
-	pub(crate) type NominatorSlashInEra<T: Config> =
+	pub type NominatorSlashInEra<T: Config> =
 		StorageDoubleMap<_, Twox64Concat, EraIndex, Twox64Concat, T::AccountId, BalanceOf<T>>;
 
 	/// Slashing spans for stash accounts.
@@ -630,7 +641,7 @@ pub mod pallet {
 	/// Records information about the maximum slash of a stash within a slashing span,
 	/// as well as how much reward has been paid out.
 	#[pallet::storage]
-	pub(crate) type SpanSlash<T: Config> = StorageMap<
+	pub type SpanSlash<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
 		(T::AccountId, slashing::SpanIndex),
@@ -663,7 +674,7 @@ pub mod pallet {
 	/// nominators. The threshold is compared to the actual number of validators / nominators
 	/// (`CountFor*`) in the system compared to the configured max (`Max*Count`).
 	#[pallet::storage]
-	pub(crate) type ChillThreshold<T: Config> = StorageValue<_, Percent, OptionQuery>;
+	pub type ChillThreshold<T: Config> = StorageValue<_, Percent, OptionQuery>;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
@@ -857,6 +868,10 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_runtime_upgrade() -> frame_support::weights::Weight {
+			Weight::zero()
+		}
+
 		fn on_initialize(_now: BlockNumberFor<T>) -> Weight {
 			// just return the weight of the on_finalize.
 			T::DbWeight::get().reads(1)
@@ -1046,61 +1061,14 @@ pub mod pallet {
 
 			// we need to fetch the ledger again because it may have been mutated in the call
 			// to `Self::do_withdraw_unbonded` above.
-			let mut ledger = Self::ledger(Controller(controller))?;
-			let mut value = value.min(ledger.active);
-			let stash = ledger.stash.clone();
+			let ledger = Self::ledger(Controller(controller))?;
 
 			ensure!(
 				ledger.unlocking.len() < T::MaxUnlockingChunks::get() as usize,
 				Error::<T>::NoMoreChunks,
 			);
 
-			if !value.is_zero() {
-				ledger.active -= value;
-
-				// Avoid there being a dust balance left in the staking system.
-				if ledger.active < T::Currency::minimum_balance() {
-					value += ledger.active;
-					ledger.active = Zero::zero();
-				}
-
-				let min_active_bond = if Nominators::<T>::contains_key(&stash) {
-					MinNominatorBond::<T>::get()
-				} else if Validators::<T>::contains_key(&stash) {
-					MinValidatorBond::<T>::get()
-				} else {
-					Zero::zero()
-				};
-
-				// Make sure that the user maintains enough active bond for their role.
-				// If a user runs into this error, they should chill first.
-				ensure!(ledger.active >= min_active_bond, Error::<T>::InsufficientBond);
-
-				// Note: in case there is no current era it is fine to bond one era more.
-				let era = Self::current_era()
-					.unwrap_or(0)
-					.defensive_saturating_add(T::BondingDuration::get());
-				if let Some(chunk) = ledger.unlocking.last_mut().filter(|chunk| chunk.era == era) {
-					// To keep the chunk count down, we only keep one chunk per era. Since
-					// `unlocking` is a FiFo queue, if a chunk exists for `era` we know that it will
-					// be the last one.
-					chunk.value = chunk.value.defensive_saturating_add(value)
-				} else {
-					ledger
-						.unlocking
-						.try_push(UnlockChunk { value, era })
-						.map_err(|_| Error::<T>::NoMoreChunks)?;
-				};
-				// NOTE: ledger must be updated prior to calling `Self::weight_of`.
-				ledger.update()?;
-
-				// update this staker in the sorted list, if they exist in it.
-				if T::VoterList::contains(&stash) {
-					let _ = T::VoterList::on_update(&stash, Self::weight_of(&stash)).defensive();
-				}
-
-				Self::deposit_event(Event::<T>::Unbonded { stash, amount: value });
-			}
+			Self::unbond_balance(ledger, value)?;
 
 			let actual_weight = if let Some(withdraw_weight) = maybe_withdraw_weight {
 				Some(T::WeightInfo::unbond().saturating_add(withdraw_weight))
@@ -1175,6 +1143,10 @@ pub mod pallet {
 						Error::<T>::TooManyValidators
 					);
 				}
+				// Polymesh change
+				// -----------------------------------------------------------------
+				T::Permissioned::on_validate(stash, prefs.commission)?;
+				// -----------------------------------------------------------------
 			}
 
 			Self::do_remove_nominator(stash);
@@ -1243,6 +1215,11 @@ pub mod pallet {
 				.collect::<Result<Vec<_>, _>>()?
 				.try_into()
 				.map_err(|_| Error::<T>::TooManyNominators)?;
+
+			// Polymesh change
+			// -----------------------------------------------------------------
+			T::Permissioned::on_nominate(&stash)?;
+			// -----------------------------------------------------------------
 
 			let nominations = Nominations {
 				targets,
@@ -1640,9 +1617,12 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			let _ = ensure_signed(origin)?;
 
-			let ed = T::Currency::minimum_balance();
-			let reapable = T::Currency::total_balance(&stash) < ed ||
-				Self::ledger(Stash(stash.clone())).map(|l| l.total).unwrap_or_default() < ed;
+			// Polymesh change:
+			//   use T::Permissioned::reapable(amount)
+			let reapable = T::Permissioned::reapable(T::Currency::total_balance(&stash)) ||
+				T::Permissioned::reapable(
+					Self::ledger(Stash(stash.clone())).map(|l| l.total).unwrap_or_default(),
+				);
 			ensure!(reapable, Error::<T>::FundedTarget);
 
 			// Remove all staking-related information and lock.
