@@ -8,7 +8,9 @@ use crate::{
 	BalanceLock, Config,
 };
 
-pub trait LockableCurrencyExt<AccountId>: LockableCurrency<AccountId, Balance = Balance> {
+pub trait LockableCurrencyExt<AccountId, Balance>:
+	LockableCurrency<AccountId, Balance = Balance>
+{
 	/// Reduces the locked amount under `lock_id` for `acc_id`.
 	fn reduce_lock(lock_id: LockIdentifier, acc_id: &AccountId, amount: Balance) -> DispatchResult;
 
@@ -22,7 +24,7 @@ pub trait LockableCurrencyExt<AccountId>: LockableCurrency<AccountId, Balance = 
 	) -> DispatchResult;
 }
 
-impl<T: Config> LockableCurrencyExt<T::AccountId> for Pallet<T> {
+impl<T: Config> LockableCurrencyExt<T::AccountId, T::Balance> for Pallet<T> {
 	fn reduce_lock(lock_id: LockIdentifier, acc_id: &AccountId, amount: Balance) -> DispatchResult {
 		if amount.is_zero() {
 			return Ok(());
