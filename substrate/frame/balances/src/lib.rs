@@ -162,6 +162,7 @@ mod tests_local;
 #[cfg(test)]
 mod tests_reentrancy;
 pub mod weights;
+pub mod impls;
 
 pub use self::imbalances::{NegativeImbalance, PositiveImbalance};
 use codec::{Codec, Decode, Encode, MaxEncodedLen};
