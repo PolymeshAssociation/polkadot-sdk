@@ -156,7 +156,6 @@
 #[macro_use]
 mod tests;
 mod benchmarking;
-pub mod impls;
 pub mod migration;
 mod tests_composite;
 mod tests_local;
@@ -247,6 +246,9 @@ pub mod pallet {
 
 		/// The id type for named reserves.
 		type ReserveIdentifier: Parameter + Member + MaxEncodedLen + Ord + Copy;
+
+		/// The Transfer Memo
+		type Memo: Parameter + MaxEncodedLen;
 	}
 
 	/// The current storage version.
@@ -288,14 +290,16 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			dest: AccountIdLookupOf<T>,
 			#[pallet::compact] value: T::Balance,
+			memo: Option<T::Memo>,
 		) -> DispatchResultWithPostInfo {
 			let transactor = ensure_signed(origin)?;
 			let dest = T::Lookup::lookup(dest)?;
-			<Self as Currency<_>>::transfer(
+			Self::transfer_with_memo(
 				&transactor,
 				&dest,
 				value,
 				ExistenceRequirement::AllowDeath,
+				memo,
 			)?;
 			Ok(().into())
 		}
@@ -372,80 +376,14 @@ pub mod pallet {
 			ensure_root(origin)?;
 			let source = T::Lookup::lookup(source)?;
 			let dest = T::Lookup::lookup(dest)?;
-			<Self as Currency<_>>::transfer(
+			Self::transfer_with_memo(
 				&source,
 				&dest,
 				value,
 				ExistenceRequirement::AllowDeath,
+				None,
 			)?;
 			Ok(().into())
-		}
-
-		/// Same as the [`transfer`] call, but with a check that the transfer will not kill the
-		/// origin account.
-		///
-		/// 99% of the time you want [`transfer`] instead.
-		///
-		/// [`transfer`]: struct.Pallet.html#method.transfer
-		#[pallet::call_index(3)]
-		#[pallet::weight(T::WeightInfo::transfer_keep_alive())]
-		pub fn transfer_keep_alive(
-			origin: OriginFor<T>,
-			dest: AccountIdLookupOf<T>,
-			#[pallet::compact] value: T::Balance,
-		) -> DispatchResultWithPostInfo {
-			let transactor = ensure_signed(origin)?;
-			let dest = T::Lookup::lookup(dest)?;
-			<Self as Currency<_>>::transfer(&transactor, &dest, value, KeepAlive)?;
-			Ok(().into())
-		}
-
-		/// Transfer the entire transferable balance from the caller account.
-		///
-		/// NOTE: This function only attempts to transfer _transferable_ balances. This means that
-		/// any locked, reserved, or existential deposits (when `keep_alive` is `true`), will not be
-		/// transferred by this function. To ensure that this function results in a killed account,
-		/// you might need to prepare the account by removing any reference counters, storage
-		/// deposits, etc...
-		///
-		/// The dispatch origin of this call must be Signed.
-		///
-		/// - `dest`: The recipient of the transfer.
-		/// - `keep_alive`: A boolean to determine if the `transfer_all` operation should send all
-		///   of the funds the account has, causing the sender account to be killed (false), or
-		///   transfer everything except at least the existential deposit, which will guarantee to
-		///   keep the sender account alive (true). ## Complexity
-		/// - O(1). Just like transfer, but reading the user's transferable balance first.
-		#[pallet::call_index(4)]
-		#[pallet::weight(T::WeightInfo::transfer_all())]
-		pub fn transfer_all(
-			origin: OriginFor<T>,
-			dest: AccountIdLookupOf<T>,
-			keep_alive: bool,
-		) -> DispatchResult {
-			use fungible::Inspect;
-			let transactor = ensure_signed(origin)?;
-			let reducible_balance = Self::reducible_balance(&transactor, keep_alive);
-			let dest = T::Lookup::lookup(dest)?;
-			let keep_alive = if keep_alive { KeepAlive } else { AllowDeath };
-			<Self as Currency<_>>::transfer(&transactor, &dest, reducible_balance, keep_alive)?;
-			Ok(())
-		}
-
-		/// Unreserve some balance from a user by force.
-		///
-		/// Can only be called by ROOT.
-		#[pallet::call_index(5)]
-		#[pallet::weight(T::WeightInfo::force_unreserve())]
-		pub fn force_unreserve(
-			origin: OriginFor<T>,
-			who: AccountIdLookupOf<T>,
-			amount: T::Balance,
-		) -> DispatchResult {
-			ensure_root(origin)?;
-			let who = T::Lookup::lookup(who)?;
-			let _leftover = <Self as ReservableCurrency<_>>::unreserve(&who, amount);
-			Ok(())
 		}
 	}
 
@@ -458,7 +396,7 @@ pub mod pallet {
 		/// resulting in an outright loss.
 		DustLost { account: T::AccountId, amount: T::Balance },
 		/// Transfer succeeded.
-		Transfer { from: T::AccountId, to: T::AccountId, amount: T::Balance },
+		Transfer { from: T::AccountId, to: T::AccountId, amount: T::Balance, memo: Option<T::Memo> },
 		/// A balance was set by root.
 		BalanceSet { who: T::AccountId, free: T::Balance, reserved: T::Balance },
 		/// Some balance was reserved (moved from free to reserved).
@@ -504,7 +442,7 @@ pub mod pallet {
 		/// Balance Overflow
 		Overflow,
 		/// Max Locks Exceeded
-		MaxLocksExceeded
+		MaxLocksExceeded,
 	}
 
 	/// The total units issued in the system.
@@ -1165,7 +1103,7 @@ impl<T: Config<I>, I: 'static> fungible::Transfer<T::AccountId> for Pallet<T, I>
 		keep_alive: bool,
 	) -> Result<T::Balance, DispatchError> {
 		let er = if keep_alive { KeepAlive } else { AllowDeath };
-		<Self as Currency<T::AccountId>>::transfer(source, dest, amount, er).map(|_| amount)
+		Self::transfer_with_memo(source, dest, amount, er, None).map(|_| amount)
 	}
 
 	fn deactivate(amount: Self::Balance) {
@@ -1578,13 +1516,6 @@ where
 				.map(|(_, maybe_dust_cleaner)| maybe_dust_cleaner)
 			},
 		)?;
-
-		// Emit transfer event.
-		Self::deposit_event(Event::Transfer {
-			from: transactor.clone(),
-			to: dest.clone(),
-			amount: value,
-		});
 
 		Ok(())
 	}
@@ -2226,5 +2157,95 @@ where
 		let mut locks = Self::locks(who);
 		locks.retain(|l| l.id != id);
 		Self::update_locks(who, &locks[..]);
+	}
+}
+
+impl<T: Config<I>, I: 'static> Pallet<T, I> {
+	fn transfer_with_memo(
+		source: &T::AccountId,
+		dest: &T::AccountId,
+		amount: T::Balance,
+		er: ExistenceRequirement,
+		memo: Option<T::Memo>,
+	) -> DispatchResult {
+		<Self as Currency<T::AccountId>>::transfer(source, dest, amount, er).map(|_| amount)?;
+		// Emit transfer event.
+		Self::deposit_event(Event::Transfer {
+			from: transactor.clone(),
+			to: dest.clone(),
+			amount: value,
+			memo,
+		});
+	}
+}
+
+impl<T: Config> LockableCurrencyExt<T::AccountId, T::Balance> for Pallet<T> {
+	fn reduce_lock(
+		lock_id: LockIdentifier,
+		acc_id: &T::AccountId,
+		amount: Self::Balance,
+	) -> DispatchResult {
+		if amount.is_zero() {
+			return Ok(());
+		}
+
+		let mut locks = Locks::<T>::get(acc_id);
+
+		let lock_id_index = locks
+			.iter()
+			.position(|lock| lock.id == lock_id)
+			.ok_or(Error::<T>::LockIdentifierNotFound)?;
+
+		let mut balance_lock = &mut locks[lock_id_index];
+		balance_lock.amount = balance_lock
+			.amount
+			.checked_sub(&amount)
+			.ok_or(Error::<T>::InsufficientBalance)?;
+
+		if balance_lock.amount.is_zero() {
+			locks.swap_remove(lock_id_index);
+		}
+
+		Self::update_locks(acc_id, &locks);
+
+		Ok(())
+	}
+
+	fn increase_lock(
+		lock_id: LockIdentifier,
+		acc_id: &T::AccountId,
+		amount: Self::Balance,
+		withdraw_reasons: WithdrawReasons,
+		check_sum: impl FnOnce(Self::Balance) -> DispatchResult,
+	) -> DispatchResult {
+		if amount.is_zero() || withdraw_reasons.is_empty() {
+			return Ok(());
+		}
+
+		let mut locks = Locks::<T>::get(acc_id);
+
+		let amount = {
+			match locks.iter().position(|lock| lock.id == lock_id) {
+				Some(lock_id_index) => {
+					let mut balance_lock = &mut locks[lock_id_index];
+					balance_lock.amount =
+						balance_lock.amount.checked_add(&amount).ok_or(Error::<T>::Overflow)?;
+					balance_lock.reasons = balance_lock.reasons | withdraw_reasons.into();
+					balance_lock.amount
+				},
+				None => {
+					let balance_lock =
+						BalanceLock { id: lock_id, amount, reasons: withdraw_reasons.into() };
+					locks.try_push(balance_lock).map_err(|_| Error::<T>::MaxLocksExceeded)?;
+					amount
+				},
+			}
+		};
+
+		check_sum(amount)?;
+
+		Self::update_locks(acc_id, &locks);
+
+		Ok(())
 	}
 }
