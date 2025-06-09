@@ -503,6 +503,8 @@ pub mod pallet {
 		LockIdentifierNotFound,
 		/// Balance Overflow
 		Overflow,
+		/// Max Locks Exceeded
+		MaxLocksExceeded
 	}
 
 	/// The total units issued in the system.

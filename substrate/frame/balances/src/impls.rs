@@ -64,7 +64,7 @@ impl<T: Config> LockableCurrencyExt<T::AccountId, T::Balance> for Pallet<T> {
 				None => {
 					let balance_lock =
 						BalanceLock { id: lock_id, amount, reasons: withdraw_reasons.into() };
-					locks.push(balance_lock);
+					locks.try_push(balance_lock).ok_or(Error::<T>::MaxLocksExceeded)?;
 					amount
 				},
 			}
