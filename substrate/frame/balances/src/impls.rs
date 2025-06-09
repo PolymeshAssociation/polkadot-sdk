@@ -5,12 +5,10 @@ use frame_support::{
 
 use crate::{
 	pallet::{Error, Locks, Pallet},
-	Config,
+	BalanceLock, Config,
 };
 
-pub trait LockableCurrencyExt<AccountId, Balance>:
-	LockableCurrency<AccountId, Balance = Balance>
-{
+pub trait LockableCurrencyExt<AccountId, Balance> {
 	/// Reduces the locked amount under `lock_id` for `acc_id`.
 	fn reduce_lock(lock_id: LockIdentifier, acc_id: &AccountId, amount: Balance) -> DispatchResult;
 
