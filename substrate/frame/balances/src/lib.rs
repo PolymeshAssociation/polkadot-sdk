@@ -2171,9 +2171,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		<Self as Currency<T::AccountId>>::transfer(source, dest, amount, er).map(|_| amount)?;
 		// Emit transfer event.
 		Self::deposit_event(Event::Transfer {
-			from: transactor.clone(),
+			from: source.clone(),
 			to: dest.clone(),
-			amount: value,
+			amount,
 			memo,
 		});
 	}
