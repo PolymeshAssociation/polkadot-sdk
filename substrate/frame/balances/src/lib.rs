@@ -156,13 +156,13 @@
 #[macro_use]
 mod tests;
 mod benchmarking;
+pub mod impls;
 pub mod migration;
 mod tests_composite;
 mod tests_local;
 #[cfg(test)]
 mod tests_reentrancy;
 pub mod weights;
-pub mod impls;
 
 pub use self::imbalances::{NegativeImbalance, PositiveImbalance};
 use codec::{Codec, Decode, Encode, MaxEncodedLen};
@@ -499,6 +499,10 @@ pub mod pallet {
 		DeadAccount,
 		/// Number of named reserves exceed MaxReserves
 		TooManyReserves,
+		/// Lock Identifier not Found
+		LockIdentifierNotFound,
+		/// Balance Overflow
+		Overflow,
 	}
 
 	/// The total units issued in the system.
