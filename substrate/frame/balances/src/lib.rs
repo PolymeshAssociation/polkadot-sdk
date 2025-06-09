@@ -2176,6 +2176,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			amount,
 			memo,
 		});
+		Ok(())
 	}
 }
 
