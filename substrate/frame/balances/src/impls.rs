@@ -28,7 +28,7 @@ impl<T: Config> LockableCurrencyExt<T::AccountId, T::Balance> for Pallet<T> {
 
 		let mut balance_lock = &mut locks[lock_id_index];
 		balance_lock.amount =
-			balance_lock.amount.checked_sub(amount).ok_or(Error::<T>::InsufficientBalance)?;
+			balance_lock.amount.checked_sub(&amount).ok_or(Error::<T>::InsufficientBalance)?;
 
 		if balance_lock.amount.is_zero() {
 			locks.swap_remove(lock_id_index);
@@ -57,7 +57,7 @@ impl<T: Config> LockableCurrencyExt<T::AccountId, T::Balance> for Pallet<T> {
 				Some(lock_id_index) => {
 					let mut balance_lock = &mut locks[lock_id_index];
 					balance_lock.amount =
-						balance_lock.amount.checked_add(amount).ok_or(Error::<T>::Overflow)?;
+						balance_lock.amount.checked_add(&amount).ok_or(Error::<T>::Overflow)?;
 					balance_lock.reasons = balance_lock.reasons | withdraw_reasons.into();
 					balance_lock.amount
 				},
