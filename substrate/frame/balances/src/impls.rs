@@ -2,14 +2,19 @@ use frame_support::{
 	pallet_prelude::DispatchResult,
 	traits::{LockIdentifier, WithdrawReasons},
 };
+use sp_runtime::traits::{CheckedAdd, CheckedSub, Zero};
 
 use crate::{
-	pallet::{Error, Locks, Pallet, LockableCurrencyExt},
+	pallet::{Error, LockableCurrencyExt, Locks, Pallet},
 	BalanceLock, Config,
 };
 
 impl<T: Config> LockableCurrencyExt<T::AccountId, T::Balance> for Pallet<T> {
-	fn reduce_lock(lock_id: LockIdentifier, acc_id: &Self::AccountId, amount: Self::Balance) -> DispatchResult {
+	fn reduce_lock(
+		lock_id: LockIdentifier,
+		acc_id: &T::AccountId,
+		amount: Self::Balance,
+	) -> DispatchResult {
 		if amount.is_zero() {
 			return Ok(());
 		}
@@ -29,14 +34,14 @@ impl<T: Config> LockableCurrencyExt<T::AccountId, T::Balance> for Pallet<T> {
 			locks.swap_remove(lock_id_index);
 		}
 
-		Self::update_locks(acc_id, &locks)?;
+		Self::update_locks(acc_id, &locks);
 
 		Ok(())
 	}
 
 	fn increase_lock(
 		lock_id: LockIdentifier,
-		acc_id: &Self::AccountId,
+		acc_id: &T::AccountId,
 		amount: Self::Balance,
 		withdraw_reasons: WithdrawReasons,
 		check_sum: impl FnOnce(Self::Balance) -> DispatchResult,
@@ -67,7 +72,7 @@ impl<T: Config> LockableCurrencyExt<T::AccountId, T::Balance> for Pallet<T> {
 
 		check_sum(amount)?;
 
-		Self::update_locks(acc_id, &locks)?;
+		Self::update_locks(acc_id, &locks);
 
 		Ok(())
 	}
