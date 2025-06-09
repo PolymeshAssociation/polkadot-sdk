@@ -9,7 +9,7 @@ use crate::{
 };
 
 impl<T: Config> LockableCurrencyExt<T::AccountId, T::Balance> for Pallet<T> {
-	fn reduce_lock(lock_id: LockIdentifier, acc_id: &AccountId, amount: Self::Balance) -> DispatchResult {
+	fn reduce_lock(lock_id: LockIdentifier, acc_id: &Self::AccountId, amount: Self::Balance) -> DispatchResult {
 		if amount.is_zero() {
 			return Ok(());
 		}
@@ -36,7 +36,7 @@ impl<T: Config> LockableCurrencyExt<T::AccountId, T::Balance> for Pallet<T> {
 
 	fn increase_lock(
 		lock_id: LockIdentifier,
-		acc_id: &AccountId,
+		acc_id: &Self::AccountId,
 		amount: Self::Balance,
 		withdraw_reasons: WithdrawReasons,
 		check_sum: impl FnOnce(Self::Balance) -> DispatchResult,
