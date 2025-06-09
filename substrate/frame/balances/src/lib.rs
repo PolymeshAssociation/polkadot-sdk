@@ -613,6 +613,26 @@ pub mod pallet {
 			}
 		}
 	}
+
+	pub trait LockableCurrencyExt<AccountId, Balance>:
+		LockableCurrency<AccountId, Balance = Balance>
+	{
+		/// Reduces the locked amount under `lock_id` for `acc_id`.
+		fn reduce_lock(
+			lock_id: LockIdentifier,
+			acc_id: &AccountId,
+			amount: Balance,
+		) -> DispatchResult;
+
+		/// Increases the locked amount under `lock_id` for `acc_id`.
+		fn increase_lock(
+			lock_id: LockIdentifier,
+			acc_id: &AccountId,
+			amount: Balance,
+			withdraw_reasons: WithdrawReasons,
+			check_sum: impl FnOnce(Balance) -> DispatchResult,
+		) -> DispatchResult;
+	}
 }
 
 #[cfg(feature = "std")]

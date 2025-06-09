@@ -1,28 +1,12 @@
 use frame_support::{
 	pallet_prelude::DispatchResult,
-	traits::{LockIdentifier, LockableCurrency, WithdrawReasons},
+	traits::{LockIdentifier, WithdrawReasons},
 };
 
 use crate::{
-	pallet::{Error, Locks, Pallet},
+	pallet::{Error, Locks, Pallet, LockableCurrencyExt},
 	BalanceLock, Config,
 };
-
-pub trait LockableCurrencyExt<AccountId, Balance>:
-	LockableCurrency<AccountId, Balance = Balance>
-{
-	/// Reduces the locked amount under `lock_id` for `acc_id`.
-	fn reduce_lock(lock_id: LockIdentifier, acc_id: &AccountId, amount: Balance) -> DispatchResult;
-
-	/// Increases the locked amount under `lock_id` for `acc_id`.
-	fn increase_lock(
-		lock_id: LockIdentifier,
-		acc_id: &AccountId,
-		amount: Balance,
-		withdraw_reasons: WithdrawReasons,
-		check_sum: impl FnOnce(Balance) -> DispatchResult,
-	) -> DispatchResult;
-}
 
 impl<T: Config> LockableCurrencyExt<T::AccountId, T::Balance> for Pallet<T> {
 	fn reduce_lock(lock_id: LockIdentifier, acc_id: &AccountId, amount: Balance) -> DispatchResult {
