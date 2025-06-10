@@ -10,7 +10,7 @@ use crate::{
 };
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
-	fn transfer_core(
+	pub(crate) fn transfer_core(
 		source: &T::AccountId,
 		dest: &T::AccountId,
 		amount: T::Balance,
