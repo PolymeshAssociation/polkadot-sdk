@@ -156,6 +156,7 @@
 #[macro_use]
 mod tests;
 mod benchmarking;
+pub mod impls;
 pub mod migration;
 mod tests_composite;
 mod tests_local;
@@ -246,6 +247,9 @@ pub mod pallet {
 
 		/// The id type for named reserves.
 		type ReserveIdentifier: Parameter + Member + MaxEncodedLen + Ord + Copy;
+
+		/// The Transfer Memo
+		type Memo: Parameter + MaxEncodedLen;
 	}
 
 	/// The current storage version.
@@ -446,6 +450,42 @@ pub mod pallet {
 			let _leftover = <Self as ReservableCurrency<_>>::unreserve(&who, amount);
 			Ok(())
 		}
+
+		/// Transfer some liquid free balance to another account.
+		///
+		/// `transfer` will set the `FreeBalance` of the sender and receiver.
+		/// If the sender's account is below the existential deposit as a result
+		/// of the transfer, the account will be reaped.
+		///
+		/// The dispatch origin for this call must be `Signed` by the transactor.
+		///
+		/// ## Complexity
+		/// - Dependent on arguments but not critical, given proper implementations for input config
+		///   types. See related functions below.
+		/// - It contains a limited number of reads and writes internally and no complex
+		///   computation.
+		///
+		/// Related functions:
+		///
+		///   - `ensure_can_withdraw` is always called internally but has a bounded complexity.
+		///   - Transferring balances to accounts that did not exist before will cause
+		///     `T::OnNewAccount::on_new_account` to be called.
+		///   - Removing enough funds from an account will trigger `T::DustRemoval::on_unbalanced`.
+		///   - `transfer_keep_alive` works the same way as `transfer`, but has an additional check
+		///     that the transfer will not kill the origin account.
+		#[pallet::call_index(40)]
+		#[pallet::weight(T::WeightInfo::transfer())]
+		pub fn transfer_with_memo(
+			origin: OriginFor<T>,
+			dest: AccountIdLookupOf<T>,
+			#[pallet::compact] value: T::Balance,
+			memo: Option<T::Memo>,
+		) -> DispatchResultWithPostInfo {
+			let transactor = ensure_signed(origin)?;
+			let dest = T::Lookup::lookup(dest)?;
+			Self::transfer_core(&transactor, &dest, value, ExistenceRequirement::AllowDeath, memo)?;
+			Ok(().into())
+		}
 	}
 
 	#[pallet::event]
@@ -478,6 +518,8 @@ pub mod pallet {
 		Withdraw { who: T::AccountId, amount: T::Balance },
 		/// Some amount was removed from the account (e.g. for misbehavior).
 		Slashed { who: T::AccountId, amount: T::Balance },
+		/// Transfer with memo succeeded.
+		TransferMemo { from: T::AccountId, to: T::AccountId, amount: T::Balance, memo: Option<T::Memo> },
 	}
 
 	#[pallet::error]
@@ -498,6 +540,12 @@ pub mod pallet {
 		DeadAccount,
 		/// Number of named reserves exceed MaxReserves
 		TooManyReserves,
+		/// Lock Identifier not Found
+		LockIdentifierNotFound,
+		/// Balance Overflow
+		Overflow,
+		/// Max Locks Exceeded
+		MaxLocksExceeded,
 	}
 
 	/// The total units issued in the system.
