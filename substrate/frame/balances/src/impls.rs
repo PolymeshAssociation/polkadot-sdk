@@ -1,6 +1,6 @@
 use frame_support::{
 	pallet_prelude::DispatchResult,
-	traits::{ExistenceRequirement, LockIdentifier, LockableCurrency, WithdrawReasons},
+	traits::{Currency, ExistenceRequirement, LockIdentifier, LockableCurrency, WithdrawReasons},
 };
 use sp_runtime::traits::{CheckedAdd, CheckedSub, Zero};
 
