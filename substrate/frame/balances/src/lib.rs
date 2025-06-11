@@ -519,7 +519,7 @@ pub mod pallet {
 		/// Some amount was removed from the account (e.g. for misbehavior).
 		Slashed { who: T::AccountId, amount: T::Balance },
 		/// Transfer with memo succeeded.
-		TransferMemo { from: T::AccountId, to: T::AccountId, memo: Option<T::Memo> },
+		TransferMemo { from: T::AccountId, to: T::AccountId, amount: T::Balance, memo: Option<T::Memo> },
 	}
 
 	#[pallet::error]
