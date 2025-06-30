@@ -791,7 +791,7 @@ pub mod pallet {
 		///   - `transfer_keep_alive` works the same way as `transfer`, but has an additional check
 		///     that the transfer will not kill the origin account.
 		#[pallet::call_index(40)]
-		#[pallet::weight(T::WeightInfo::transfer())]
+		#[pallet::weight(T::WeightInfo::transfer_allow_death())]
 		pub fn transfer_with_memo(
 			origin: OriginFor<T>,
 			dest: AccountIdLookupOf<T>,
