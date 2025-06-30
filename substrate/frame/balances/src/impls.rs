@@ -19,7 +19,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		amount: T::Balance,
 		memo: Option<T::Memo>,
 	) -> DispatchResult {
-		<Self as fungible::Mutate<_>>::transfer(source, dest, value, Expendable)?;
+		<Self as fungible::Mutate<_>>::transfer(source, dest, amount, Expendable)?;
 		Self::deposit_event(Event::TransferMemo {
 			from: source.clone(),
 			to: dest.clone(),
