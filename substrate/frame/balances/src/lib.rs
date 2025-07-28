@@ -145,6 +145,7 @@
 mod benchmarking;
 mod impl_currency;
 mod impl_fungible;
+pub mod impls;
 pub mod migration;
 mod tests;
 mod types;
@@ -245,6 +246,8 @@ pub mod pallet {
 
 			type WeightInfo = ();
 			type DoneSlashHandler = ();
+
+			type Memo = [u8; 32];
 		}
 	}
 
@@ -332,6 +335,9 @@ pub mod pallet {
 			Self::AccountId,
 			Self::Balance,
 		>;
+
+		/// The Transfer Memo
+		type Memo: Parameter + MaxEncodedLen;
 	}
 
 	/// The in-code storage version.
@@ -396,6 +402,13 @@ pub mod pallet {
 		Thawed { who: T::AccountId, amount: T::Balance },
 		/// The `TotalIssuance` was forcefully changed.
 		TotalIssuanceForced { old: T::Balance, new: T::Balance },
+		/// Transfer with memo succeeded.
+		TransferWithMemo {
+			from: T::AccountId,
+			to: T::AccountId,
+			amount: T::Balance,
+			memo: Option<T::Memo>,
+		},
 	}
 
 	#[pallet::error]
@@ -424,6 +437,12 @@ pub mod pallet {
 		IssuanceDeactivated,
 		/// The delta cannot be zero.
 		DeltaZero,
+		/// Lock Identifier not Found
+		LockIdentifierNotFound,
+		/// Balance Overflow
+		Overflow,
+		/// Max Locks Exceeded
+		MaxLocksExceeded,
 	}
 
 	/// The total units issued in the system.
@@ -849,6 +868,42 @@ pub mod pallet {
 				Precision::Exact,
 				Polite,
 			)?;
+			Ok(())
+		}
+
+		/// Transfer some liquid free balance to another account.
+		///
+		/// `transfer` will set the `FreeBalance` of the sender and receiver.
+		/// If the sender's account is below the existential deposit as a result
+		/// of the transfer, the account will be reaped.
+		///
+		/// The dispatch origin for this call must be `Signed` by the transactor.
+		///
+		/// ## Complexity
+		/// - Dependent on arguments but not critical, given proper implementations for input config
+		///   types. See related functions below.
+		/// - It contains a limited number of reads and writes internally and no complex
+		///   computation.
+		///
+		/// Related functions:
+		///
+		///   - `ensure_can_withdraw` is always called internally but has a bounded complexity.
+		///   - Transferring balances to accounts that did not exist before will cause
+		///     `T::OnNewAccount::on_new_account` to be called.
+		///   - Removing enough funds from an account will trigger `T::DustRemoval::on_unbalanced`.
+		///   - `transfer_keep_alive` works the same way as `transfer`, but has an additional check
+		///     that the transfer will not kill the origin account.
+		#[pallet::call_index(40)]
+		#[pallet::weight(T::WeightInfo::transfer_allow_death())]
+		pub fn transfer_with_memo(
+			origin: OriginFor<T>,
+			dest: AccountIdLookupOf<T>,
+			#[pallet::compact] value: T::Balance,
+			memo: Option<T::Memo>,
+		) -> DispatchResult {
+			let source = ensure_signed(origin)?;
+			let dest = T::Lookup::lookup(dest)?;
+			Self::transfer_core(&source, &dest, value, memo)?;
 			Ok(())
 		}
 	}
