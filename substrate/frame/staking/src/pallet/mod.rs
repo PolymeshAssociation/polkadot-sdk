@@ -61,6 +61,11 @@ use crate::{
 // account which is not provided as an input. The value set should be conservative but sensible.
 pub(crate) const SPECULATIVE_NUM_SPANS: u32 = 32;
 
+// Polymesh change
+// -----------------------------------------------------------------
+use crate::permissioned_staking::PermissionedStaking;
+// -----------------------------------------------------------------
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -333,6 +338,13 @@ pub mod pallet {
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
+
+		// Polymesh change
+		// -----------------------------------------------------------------
+		/// Permissioned staking.
+		#[pallet::no_default_bounds]
+		type Permissioned: PermissionedStaking<Self>;
+		// -----------------------------------------------------------------
 	}
 
 	/// A reason for placing a hold on funds.
@@ -384,6 +396,7 @@ pub mod pallet {
 			#[cfg(feature = "std")]
 			type BenchmarkingConfig = crate::TestBenchmarkingConfig;
 			type WeightInfo = ();
+			type Permissioned = ();
 		}
 	}
 
@@ -961,6 +974,10 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_runtime_upgrade() -> frame_support::weights::Weight {
+			Weight::zero()
+		}
+
 		fn on_initialize(_now: BlockNumberFor<T>) -> Weight {
 			// just return the weight of the on_finalize.
 			T::DbWeight::get().reads(1)
@@ -1339,6 +1356,12 @@ pub mod pallet {
 			// ensure their commission is correct.
 			ensure!(prefs.commission >= MinCommission::<T>::get(), Error::<T>::CommissionTooLow);
 
+			// Polymesh change - always enforce commission cap and permissions
+			// for both new and existing validators.
+			// -----------------------------------------------------------------
+			T::Permissioned::on_validate(stash, prefs.commission)?;
+			// -----------------------------------------------------------------
+
 			// Only check limits if they are not already a validator.
 			if !Validators::<T>::contains_key(stash) {
 				// If this error is reached, we need to adjust the `MinValidatorBond` and start
@@ -1418,6 +1441,11 @@ pub mod pallet {
 				.collect::<Result<Vec<_>, _>>()?
 				.try_into()
 				.map_err(|_| Error::<T>::TooManyNominators)?;
+
+			// Polymesh change
+			// -----------------------------------------------------------------
+			T::Permissioned::on_nominate(&stash)?;
+			// -----------------------------------------------------------------
 
 			let nominations = Nominations {
 				targets,
@@ -1814,14 +1842,16 @@ pub mod pallet {
 			// virtual stakers should not be allowed to be reaped.
 			ensure!(!Self::is_virtual_staker(&stash), Error::<T>::VirtualStakerNotAllowed);
 
-			let ed = asset::existential_deposit::<T>();
 			let origin_balance = asset::total_balance::<T>(&stash);
 			let ledger_total =
 				Self::ledger(Stash(stash.clone())).map(|l| l.total).unwrap_or_default();
-			let reapable = origin_balance < ed ||
+			// Polymesh change
+			// -----------------------------------------------------------------
+			let reapable = T::Permissioned::reapable(origin_balance) ||
 				origin_balance.is_zero() ||
-				ledger_total < ed ||
+				T::Permissioned::reapable(ledger_total) ||
 				ledger_total.is_zero();
+			// -----------------------------------------------------------------
 			ensure!(reapable, Error::<T>::FundedTarget);
 
 			// Remove all staking-related information and lock.

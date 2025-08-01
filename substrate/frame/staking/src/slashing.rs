@@ -67,6 +67,8 @@ use sp_runtime::{
 };
 use sp_staking::{EraIndex, StakingInterface};
 
+use crate::permissioned_staking::PermissionedStaking;
+
 /// The proportion of the slashing reward to be paid out on the first slashing detection.
 /// This is f_1 in the paper.
 const REWARD_F1: Perbill = Perbill::from_percent(50);
@@ -106,7 +108,7 @@ pub struct SlashingSpans {
 impl SlashingSpans {
 	// creates a new record of slashing spans for a stash, starting at the beginning
 	// of the bonding period, relative to now.
-	pub(crate) fn new(window_start: EraIndex) -> Self {
+	pub fn new(window_start: EraIndex) -> Self {
 		SlashingSpans {
 			span_index: 0,
 			last_start: window_start,
@@ -135,7 +137,7 @@ impl SlashingSpans {
 	}
 
 	// an iterator over all slashing spans in _reverse_ order - most recent first.
-	pub(crate) fn iter(&'_ self) -> impl Iterator<Item = SlashingSpan> + '_ {
+	pub fn iter(&'_ self) -> impl Iterator<Item = SlashingSpan> + '_ {
 		let mut last_start = self.last_start;
 		let mut index = self.span_index;
 		let last = SlashingSpan { index, start: last_start, length: None };
@@ -206,8 +208,7 @@ pub struct SpanRecord<Balance> {
 
 impl<Balance> SpanRecord<Balance> {
 	/// The value of stash balance slashed in this span.
-	#[cfg(test)]
-	pub(crate) fn amount(&self) -> &Balance {
+	pub fn amount(&self) -> &Balance {
 		&self.slashed
 	}
 }
@@ -295,7 +296,13 @@ pub(crate) fn compute_slash<T: Config>(
 	}
 
 	let mut nominators_slashed = Vec::new();
-	reward_payout += slash_nominators::<T>(params.clone(), prior_slash_p, &mut nominators_slashed);
+	// Polymesh change
+	// -----------------------------------------------------------------
+	if T::Permissioned::slash_nominators() {
+		reward_payout +=
+			slash_nominators::<T>(params.clone(), prior_slash_p, &mut nominators_slashed);
+	}
+	// -----------------------------------------------------------------
 
 	Some(UnappliedSlash {
 		validator: params.stash.clone(),
@@ -605,15 +612,20 @@ pub(crate) fn apply_slash<T: Config>(
 		slash_era,
 	);
 
-	for &(ref nominator, nominator_slash) in &unapplied_slash.others {
-		do_slash::<T>(
-			nominator,
-			nominator_slash,
-			&mut reward_payout,
-			&mut slashed_imbalance,
-			slash_era,
-		);
+	// Polymesh change
+	// -----------------------------------------------------------------
+	if T::Permissioned::slash_nominators() {
+		for &(ref nominator, nominator_slash) in &unapplied_slash.others {
+			do_slash::<T>(
+				nominator,
+				nominator_slash,
+				&mut reward_payout,
+				&mut slashed_imbalance,
+				slash_era,
+			);
+		}
 	}
+	// -----------------------------------------------------------------
 
 	pay_reporters::<T>(reward_payout, slashed_imbalance, &unapplied_slash.reporters);
 }

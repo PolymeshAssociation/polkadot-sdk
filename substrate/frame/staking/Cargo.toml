@@ -73,9 +73,9 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 	"pallet-session/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
-	"rand_chacha",
 	"sp-runtime/runtime-benchmarks",
 	"sp-staking/runtime-benchmarks",
+	"testing",
 ]
 try-runtime = [
 	"frame-election-provider-support/try-runtime",
@@ -87,4 +87,8 @@ try-runtime = [
 	"pallet-session/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"sp-runtime/try-runtime",
+]
+testing = [
+	"frame-benchmarking",
+	"rand_chacha",
 ]
