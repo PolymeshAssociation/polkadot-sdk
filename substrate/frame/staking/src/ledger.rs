@@ -40,11 +40,11 @@ use crate::{
 	StakingLedger, VirtualStakers,
 };
 
-#[cfg(any(feature = "runtime-benchmarks", test))]
+#[cfg(any(feature = "runtime-benchmarks", feature = "testing", test))]
 use sp_runtime::traits::Zero;
 
 impl<T: Config> StakingLedger<T> {
-	#[cfg(any(feature = "runtime-benchmarks", test))]
+	#[cfg(any(feature = "runtime-benchmarks", feature = "testing", test))]
 	pub fn default_from(stash: T::AccountId) -> Self {
 		Self {
 			stash: stash.clone(),
@@ -83,7 +83,7 @@ impl<T: Config> StakingLedger<T> {
 	///
 	/// This method is meant to abstract from the runtime development the difference between stash
 	/// and controller. This will be deprecated once the controller is fully deprecated as well.
-	pub(crate) fn paired_account(account: StakingAccount<T::AccountId>) -> Option<T::AccountId> {
+	pub fn paired_account(account: StakingAccount<T::AccountId>) -> Option<T::AccountId> {
 		match account {
 			StakingAccount::Stash(stash) => <Bonded<T>>::get(stash),
 			StakingAccount::Controller(controller) => {
@@ -93,7 +93,7 @@ impl<T: Config> StakingLedger<T> {
 	}
 
 	/// Returns whether a given account is bonded.
-	pub(crate) fn is_bonded(account: StakingAccount<T::AccountId>) -> bool {
+	pub fn is_bonded(account: StakingAccount<T::AccountId>) -> bool {
 		match account {
 			StakingAccount::Stash(stash) => <Bonded<T>>::contains_key(stash),
 			StakingAccount::Controller(controller) => <Ledger<T>>::contains_key(controller),
@@ -108,7 +108,7 @@ impl<T: Config> StakingLedger<T> {
 	///
 	/// Returns [`Error::BadState`] when a bond is in "bad state". A bond is in a bad state when a
 	/// stash has a controller which is bonding a ledger associated with another stash.
-	pub(crate) fn get(account: StakingAccount<T::AccountId>) -> Result<StakingLedger<T>, Error<T>> {
+	pub fn get(account: StakingAccount<T::AccountId>) -> Result<StakingLedger<T>, Error<T>> {
 		let (stash, controller) = match account.clone() {
 			StakingAccount::Stash(stash) => {
 				(stash.clone(), <Bonded<T>>::get(&stash).ok_or(Error::<T>::NotStash)?)
@@ -183,7 +183,7 @@ impl<T: Config> StakingLedger<T> {
 	///
 	/// Note: To ensure lock consistency, all the [`Ledger`] storage updates should be made through
 	/// this helper function.
-	pub(crate) fn update(self) -> Result<(), Error<T>> {
+	pub fn update(self) -> Result<(), Error<T>> {
 		if !<Bonded<T>>::contains_key(&self.stash) {
 			return Err(Error::<T>::NotStash);
 		}
@@ -209,7 +209,7 @@ impl<T: Config> StakingLedger<T> {
 	/// Bonds a ledger.
 	///
 	/// It sets the reward preferences for the bonded stash.
-	pub(crate) fn bond(self, payee: RewardDestination<T::AccountId>) -> Result<(), Error<T>> {
+	pub fn bond(self, payee: RewardDestination<T::AccountId>) -> Result<(), Error<T>> {
 		if <Bonded<T>>::contains_key(&self.stash) {
 			return Err(Error::<T>::AlreadyBonded);
 		}
@@ -255,7 +255,7 @@ impl<T: Config> StakingLedger<T> {
 
 	/// Clears all data related to a staking ledger and its bond in both [`Ledger`] and [`Bonded`]
 	/// storage items and updates the stash staking lock.
-	pub(crate) fn kill(stash: &T::AccountId) -> DispatchResult {
+	pub fn kill(stash: &T::AccountId) -> DispatchResult {
 		let controller = <Bonded<T>>::get(stash).ok_or(Error::<T>::NotStash)?;
 
 		<Ledger<T>>::get(&controller).ok_or(Error::<T>::NotController).map(|ledger| {
@@ -274,7 +274,7 @@ impl<T: Config> StakingLedger<T> {
 	}
 }
 
-#[cfg(test)]
+#[cfg(any(test, feature = "testing"))]
 use {
 	crate::UnlockChunk,
 	codec::{Decode, Encode, MaxEncodedLen},
@@ -283,7 +283,7 @@ use {
 
 // This structs makes it easy to write tests to compare staking ledgers fetched from storage. This
 // is required because the controller field is not stored in storage and it is private.
-#[cfg(test)]
+#[cfg(any(test, feature = "testing"))]
 #[derive(frame_support::DebugNoBound, Clone, Encode, Decode, TypeInfo, MaxEncodedLen)]
 pub struct StakingLedgerInspect<T: Config> {
 	pub stash: T::AccountId,
@@ -295,7 +295,7 @@ pub struct StakingLedgerInspect<T: Config> {
 	pub legacy_claimed_rewards: frame_support::BoundedVec<sp_staking::EraIndex, T::HistoryDepth>,
 }
 
-#[cfg(test)]
+#[cfg(any(test, feature = "testing"))]
 impl<T: Config> PartialEq<StakingLedgerInspect<T>> for StakingLedger<T> {
 	fn eq(&self, other: &StakingLedgerInspect<T>) -> bool {
 		self.stash == other.stash &&
@@ -306,5 +306,5 @@ impl<T: Config> PartialEq<StakingLedgerInspect<T>> for StakingLedger<T> {
 	}
 }
 
-#[cfg(test)]
+#[cfg(any(test, feature = "testing"))]
 impl<T: Config> codec::EncodeLike<StakingLedger<T>> for StakingLedgerInspect<T> {}
