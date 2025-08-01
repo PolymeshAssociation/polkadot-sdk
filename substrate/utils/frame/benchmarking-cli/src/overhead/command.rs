@@ -532,6 +532,7 @@ impl OverheadCmd {
 		let database_source = self.database_config(
 			&base_path.path().to_path_buf(),
 			self.database_cache_size()?.unwrap_or(1024),
+			self.database_max_total_wal_size()?,
 			self.database()?.unwrap_or(Database::Auto),
 		)?;
 
