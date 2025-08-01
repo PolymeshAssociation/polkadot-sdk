@@ -287,7 +287,7 @@
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
-#[cfg(any(feature = "runtime-benchmarks", test))]
+#[cfg(any(feature = "testing", test))]
 pub mod testing_utils;
 
 #[cfg(test)]
@@ -303,7 +303,9 @@ pub mod migrations;
 pub mod slashing;
 pub mod weights;
 
-mod pallet;
+pub mod pallet;
+
+pub mod permissioned_staking;
 
 extern crate alloc;
 
@@ -362,7 +364,7 @@ pub type RewardPoint = u32;
 /// The balance type of this pallet.
 pub type BalanceOf<T> = <T as Config>::CurrencyBalance;
 
-type PositiveImbalanceOf<T> = Debt<<T as frame_system::Config>::AccountId, <T as Config>::Currency>;
+pub type PositiveImbalanceOf<T> = Debt<<T as frame_system::Config>::AccountId, <T as Config>::Currency>;
 pub type NegativeImbalanceOf<T> =
 	Credit<<T as frame_system::Config>::AccountId, <T as Config>::Currency>;
 
@@ -464,10 +466,10 @@ pub struct ValidatorPrefs {
 pub struct UnlockChunk<Balance: HasCompact + MaxEncodedLen> {
 	/// Amount of funds to be unlocked.
 	#[codec(compact)]
-	value: Balance,
+	pub value: Balance,
 	/// Era number at which point it'll be unlocked.
 	#[codec(compact)]
-	era: EraIndex,
+	pub era: EraIndex,
 }
 
 /// The ledger of a (bonded) stash.
@@ -864,15 +866,15 @@ impl<AccountId, Balance: HasCompact + Copy + AtLeast32BitUnsigned + codec::MaxEn
 #[derive(Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct UnappliedSlash<AccountId, Balance: HasCompact> {
 	/// The stash ID of the offending validator.
-	validator: AccountId,
+	pub validator: AccountId,
 	/// The validator's own slash.
-	own: Balance,
+	pub own: Balance,
 	/// All other slashed stakers and amounts.
-	others: Vec<(AccountId, Balance)>,
+	pub others: Vec<(AccountId, Balance)>,
 	/// Reporters of the offence; bounty payout recipients.
-	reporters: Vec<AccountId>,
+	pub reporters: Vec<AccountId>,
 	/// The amount of payout.
-	payout: Balance,
+	pub payout: Balance,
 }
 
 impl<AccountId, Balance: HasCompact + Zero> UnappliedSlash<AccountId, Balance> {
@@ -1361,10 +1363,8 @@ pub trait BenchmarkingConfig {
 /// A mock benchmarking config for pallet-staking.
 ///
 /// Should only be used for testing.
-#[cfg(feature = "std")]
 pub struct TestBenchmarkingConfig;
 
-#[cfg(feature = "std")]
 impl BenchmarkingConfig for TestBenchmarkingConfig {
 	type MaxValidators = frame_support::traits::ConstU32<100>;
 	type MaxNominators = frame_support::traits::ConstU32<100>;
