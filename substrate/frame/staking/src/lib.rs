@@ -287,7 +287,7 @@
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarking;
-#[cfg(any(feature = "runtime-benchmarks", test))]
+#[cfg(any(feature = "testing", test))]
 pub mod testing_utils;
 
 #[cfg(test)]
@@ -303,7 +303,9 @@ pub mod migrations;
 pub mod slashing;
 pub mod weights;
 
-mod pallet;
+pub mod pallet;
+
+pub mod permissioned_staking;
 
 extern crate alloc;
 
@@ -334,7 +336,7 @@ pub use weights::WeightInfo;
 
 pub use pallet::{pallet::*, UseNominatorsAndValidatorsMap, UseValidatorsMap};
 
-pub(crate) const STAKING_ID: LockIdentifier = *b"staking ";
+pub const STAKING_ID: LockIdentifier = *b"staking ";
 pub(crate) const LOG_TARGET: &str = "runtime::staking";
 
 // syntactic sugar for logging.
@@ -362,7 +364,8 @@ pub type RewardPoint = u32;
 /// The balance type of this pallet.
 pub type BalanceOf<T> = <T as Config>::CurrencyBalance;
 
-type PositiveImbalanceOf<T> = Debt<<T as frame_system::Config>::AccountId, <T as Config>::Currency>;
+pub type PositiveImbalanceOf<T> =
+	Debt<<T as frame_system::Config>::AccountId, <T as Config>::Currency>;
 pub type NegativeImbalanceOf<T> =
 	Credit<<T as frame_system::Config>::AccountId, <T as Config>::Currency>;
 
@@ -464,10 +467,10 @@ pub struct ValidatorPrefs {
 pub struct UnlockChunk<Balance: HasCompact + MaxEncodedLen> {
 	/// Amount of funds to be unlocked.
 	#[codec(compact)]
-	value: Balance,
+	pub value: Balance,
 	/// Era number at which point it'll be unlocked.
 	#[codec(compact)]
-	era: EraIndex,
+	pub era: EraIndex,
 }
 
 /// The ledger of a (bonded) stash.
@@ -521,12 +524,12 @@ pub struct StakingLedger<T: Config> {
 	/// This is not stored on-chain, and is only bundled when the ledger is read from storage.
 	/// Use [`controller`] function to get the controller associated with the ledger.
 	#[codec(skip)]
-	controller: Option<T::AccountId>,
+	pub controller: Option<T::AccountId>,
 }
 
 /// State of a ledger with regards with its data and metadata integrity.
 #[derive(PartialEq, Debug)]
-enum LedgerIntegrityState {
+pub enum LedgerIntegrityState {
 	/// Ledger, bond and corresponding staking lock is OK.
 	Ok,
 	/// Ledger and/or bond is corrupted. This means that the bond has a ledger with a different
@@ -857,6 +860,12 @@ impl<AccountId, Balance: HasCompact + Copy + AtLeast32BitUnsigned + codec::MaxEn
 	pub fn others(&self) -> &Vec<IndividualExposure<AccountId, Balance>> {
 		&self.exposure_page.others
 	}
+
+	#[cfg(any(test, feature = "testing"))]
+	/// Returns the exposure metadata page count.
+	pub fn page_count(&self) -> Page {
+		self.exposure_metadata.page_count
+	}
 }
 
 /// A pending slash record. The value of the slash has been computed but not applied yet,
@@ -864,15 +873,15 @@ impl<AccountId, Balance: HasCompact + Copy + AtLeast32BitUnsigned + codec::MaxEn
 #[derive(Encode, Decode, RuntimeDebug, TypeInfo)]
 pub struct UnappliedSlash<AccountId, Balance: HasCompact> {
 	/// The stash ID of the offending validator.
-	validator: AccountId,
+	pub validator: AccountId,
 	/// The validator's own slash.
-	own: Balance,
+	pub own: Balance,
 	/// All other slashed stakers and amounts.
-	others: Vec<(AccountId, Balance)>,
+	pub others: Vec<(AccountId, Balance)>,
 	/// Reporters of the offence; bounty payout recipients.
-	reporters: Vec<AccountId>,
+	pub reporters: Vec<AccountId>,
 	/// The amount of payout.
-	payout: Balance,
+	pub payout: Balance,
 }
 
 impl<AccountId, Balance: HasCompact + Zero> UnappliedSlash<AccountId, Balance> {
@@ -1152,7 +1161,7 @@ impl<T: Config> EraInfo<T> {
 	/// removed once `T::HistoryDepth` eras have passed and none of the older non-paged rewards
 	/// are relevant/claimable.
 	// Refer tracker issue for cleanup: https://github.com/paritytech/polkadot-sdk/issues/433
-	pub(crate) fn is_rewards_claimed_with_legacy_fallback(
+	pub fn is_rewards_claimed_with_legacy_fallback(
 		era: EraIndex,
 		ledger: &StakingLedger<T>,
 		validator: &T::AccountId,
@@ -1234,7 +1243,7 @@ impl<T: Config> EraInfo<T> {
 	/// Returns the number of pages of exposure a validator has for the given era.
 	///
 	/// For eras where paged exposure does not exist, this returns 1 to keep backward compatibility.
-	pub(crate) fn get_page_count(era: EraIndex, validator: &T::AccountId) -> Page {
+	pub fn get_page_count(era: EraIndex, validator: &T::AccountId) -> Page {
 		<ErasStakersOverview<T>>::get(&era, validator)
 			.map(|overview| {
 				if overview.page_count == 0 && overview.own > Zero::zero() {
@@ -1361,10 +1370,8 @@ pub trait BenchmarkingConfig {
 /// A mock benchmarking config for pallet-staking.
 ///
 /// Should only be used for testing.
-#[cfg(feature = "std")]
 pub struct TestBenchmarkingConfig;
 
-#[cfg(feature = "std")]
 impl BenchmarkingConfig for TestBenchmarkingConfig {
 	type MaxValidators = frame_support::traits::ConstU32<100>;
 	type MaxNominators = frame_support::traits::ConstU32<100>;

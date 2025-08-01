@@ -18,7 +18,11 @@
 //! Staking pallet benchmarking.
 
 use super::*;
-use crate::{asset, ConfigOp, Pallet as Staking};
+use crate::{
+	asset,
+	permissioned_staking::{PermissionedStaking, WhoToSlash},
+	ConfigOp, Pallet as Staking,
+};
 use testing_utils::*;
 
 use codec::Decode;
@@ -87,6 +91,7 @@ pub fn create_validator_with_nominators<T: Config>(
 
 	let validator_prefs =
 		ValidatorPrefs { commission: Perbill::from_percent(50), ..Default::default() };
+	add_permissioned_validator_::<T>(&v_stash);
 	Staking::<T>::validate(RawOrigin::Signed(v_controller).into(), validator_prefs)?;
 	let stash_lookup = T::Lookup::unlookup(v_stash.clone());
 
@@ -132,7 +137,7 @@ pub fn create_validator_with_nominators<T: Config>(
 	ErasRewardPoints::<T>::insert(current_era, reward);
 
 	// Create reward pool
-	let total_payout = asset::existential_deposit::<T>()
+	let total_payout = minimum_balance::<T>()
 		.saturating_mul(upper_bound.into())
 		.saturating_mul(1000u32.into());
 	<ErasValidatorReward<T>>::insert(current_era, total_payout);
@@ -227,7 +232,7 @@ mod benchmarks {
 	fn bond() {
 		let stash = create_funded_user::<T>("stash", USER_SEED, 100);
 		let reward_destination = RewardDestination::Staked;
-		let amount = asset::existential_deposit::<T>() * 10u32.into();
+		let amount = minimum_balance::<T>() * 10u32.into();
 		whitelist_account!(stash);
 
 		#[extrinsic_call]
@@ -242,7 +247,7 @@ mod benchmarks {
 		// clean up any existing state.
 		clear_validators_and_nominators::<T>();
 
-		let origin_weight = MinNominatorBond::<T>::get().max(asset::existential_deposit::<T>());
+		let origin_weight = MinNominatorBond::<T>::get().max(minimum_balance::<T>());
 
 		// setup the worst case list scenario.
 
@@ -257,11 +262,8 @@ mod benchmarks {
 			.map(|l| l.active)
 			.ok_or("ledger not created after")?;
 
-		let _ = asset::mint_into_existing::<T>(
-			&stash,
-			max_additional + asset::existential_deposit::<T>(),
-		)
-		.unwrap();
+		let _ = asset::mint_into_existing::<T>(&stash, max_additional + minimum_balance::<T>())
+			.unwrap();
 
 		whitelist_account!(stash);
 
@@ -312,7 +314,7 @@ mod benchmarks {
 	) -> Result<(), BenchmarkError> {
 		let (stash, controller) = create_stash_controller::<T>(0, 100, RewardDestination::Staked)?;
 		add_slashing_spans::<T>(&stash, s);
-		let amount = asset::existential_deposit::<T>() * 5u32.into(); // Half of total
+		let amount = minimum_balance::<T>() * 5u32.into(); // Half of total
 		Staking::<T>::unbond(RawOrigin::Signed(controller.clone()).into(), amount)?;
 		CurrentEra::<T>::put(EraIndex::max_value());
 		let ledger = Ledger::<T>::get(&controller).ok_or("ledger not created before")?;
@@ -338,7 +340,7 @@ mod benchmarks {
 		// clean up any existing state.
 		clear_validators_and_nominators::<T>();
 
-		let origin_weight = MinNominatorBond::<T>::get().max(asset::existential_deposit::<T>());
+		let origin_weight = MinNominatorBond::<T>::get().max(minimum_balance::<T>());
 
 		// setup a worst case list scenario. Note that we don't care about the setup of the
 		// destination position because we are doing a removal from the list but no insert.
@@ -348,9 +350,8 @@ mod benchmarks {
 		add_slashing_spans::<T>(&stash, s);
 		assert!(T::VoterList::contains(&stash));
 
-		let ed = asset::existential_deposit::<T>();
 		let mut ledger = Ledger::<T>::get(&controller).unwrap();
-		ledger.active = ed - One::one();
+		ledger.active = 0u32.into();
 		Ledger::<T>::insert(&controller, ledger);
 		CurrentEra::<T>::put(EraIndex::max_value());
 
@@ -374,6 +375,11 @@ mod benchmarks {
 		)?;
 		// because it is chilled.
 		assert!(!T::VoterList::contains(&stash));
+
+		// Polymesh change
+		// -----------------------------------------------------------------
+		add_permissioned_validator_::<T>(&stash);
+		// -----------------------------------------------------------------
 
 		let prefs = ValidatorPrefs::default();
 		whitelist_account!(controller);
@@ -407,6 +413,8 @@ mod benchmarks {
 			RewardDestination::Staked,
 		)?;
 		let stash_lookup = T::Lookup::unlookup(stash.clone());
+
+		add_permissioned_validator_::<T>(&stash);
 
 		// they start validating.
 		Staking::<T>::validate(RawOrigin::Signed(controller.clone()).into(), Default::default())?;
@@ -463,7 +471,7 @@ mod benchmarks {
 		// clean up any existing state.
 		clear_validators_and_nominators::<T>();
 
-		let origin_weight = MinNominatorBond::<T>::get().max(asset::existential_deposit::<T>());
+		let origin_weight = MinNominatorBond::<T>::get().max(minimum_balance::<T>());
 
 		// setup a worst case list scenario. Note we don't care about the destination position,
 		// because we are just doing an insert into the origin position.
@@ -496,7 +504,7 @@ mod benchmarks {
 		// clean up any existing state.
 		clear_validators_and_nominators::<T>();
 
-		let origin_weight = MinNominatorBond::<T>::get().max(asset::existential_deposit::<T>());
+		let origin_weight = MinNominatorBond::<T>::get().max(minimum_balance::<T>());
 
 		// setup a worst case list scenario. Note that we don't care about the setup of the
 		// destination position because we are doing a removal from the list but no insert.
@@ -657,7 +665,7 @@ mod benchmarks {
 		// Clean up any existing state.
 		clear_validators_and_nominators::<T>();
 
-		let origin_weight = MinNominatorBond::<T>::get().max(asset::existential_deposit::<T>());
+		let origin_weight = MinNominatorBond::<T>::get().max(minimum_balance::<T>());
 
 		// setup a worst case list scenario. Note that we don't care about the setup of the
 		// destination position because we are doing a removal from the list but no insert.
@@ -749,7 +757,7 @@ mod benchmarks {
 		clear_validators_and_nominators::<T>();
 
 		let origin_weight = MinNominatorBond::<T>::get()
-			.max(asset::existential_deposit::<T>())
+			.max(minimum_balance::<T>())
 			// we use 100 to play friendly with the list threshold values in the mock
 			.max(100u32.into());
 
@@ -795,7 +803,7 @@ mod benchmarks {
 		// clean up any existing state.
 		clear_validators_and_nominators::<T>();
 
-		let origin_weight = MinNominatorBond::<T>::get().max(asset::existential_deposit::<T>());
+		let origin_weight = MinNominatorBond::<T>::get().max(minimum_balance::<T>());
 
 		// setup a worst case list scenario. Note that we don't care about the setup of the
 		// destination position because we are doing a removal from the list but no insert.
@@ -804,8 +812,8 @@ mod benchmarks {
 		let stash = scenario.origin_stash1;
 
 		add_slashing_spans::<T>(&stash, s);
-		let l =
-			StakingLedger::<T>::new(stash.clone(), asset::existential_deposit::<T>() - One::one());
+		let l = StakingLedger::<T>::new(stash.clone(), minimum_balance::<T>());
+		asset::set_stakeable_balance::<T>(&stash, 0u32.into());
 		Ledger::<T>::insert(&controller, l);
 
 		assert!(Bonded::<T>::contains_key(&stash));
@@ -878,7 +886,7 @@ mod benchmarks {
 		ErasRewardPoints::<T>::insert(current_era, reward);
 
 		// Create reward pool
-		let total_payout = asset::existential_deposit::<T>() * 1000u32.into();
+		let total_payout = minimum_balance::<T>() * 1000u32.into();
 		<ErasValidatorReward<T>>::insert(current_era, total_payout);
 
 		let caller: T::AccountId = whitelisted_caller();
@@ -919,7 +927,7 @@ mod benchmarks {
 			staking_ledger.unlocking.try_push(unlock_chunk.clone()).unwrap();
 		}
 		Ledger::<T>::insert(controller, staking_ledger);
-		let slash_amount = asset::existential_deposit::<T>() * 10u32.into();
+		let slash_amount = minimum_balance::<T>() * 10u32.into();
 		let balance_before = asset::stakeable_balance::<T>(&stash);
 
 		#[block]
@@ -1051,7 +1059,7 @@ mod benchmarks {
 		// clean up any existing state.
 		clear_validators_and_nominators::<T>();
 
-		let origin_weight = MinNominatorBond::<T>::get().max(asset::existential_deposit::<T>());
+		let origin_weight = MinNominatorBond::<T>::get().max(minimum_balance::<T>());
 
 		// setup a worst case list scenario. Note that we don't care about the setup of the
 		// destination position because we are doing a removal from the list but no insert.
@@ -1089,6 +1097,7 @@ mod benchmarks {
 		let (stash, controller) = create_stash_controller::<T>(1, 1, RewardDestination::Staked)?;
 		let validator_prefs =
 			ValidatorPrefs { commission: Perbill::from_percent(50), ..Default::default() };
+		add_permissioned_validator_::<T>(&stash);
 		Staking::<T>::validate(RawOrigin::Signed(controller).into(), validator_prefs)?;
 
 		// Sanity check
@@ -1169,6 +1178,8 @@ mod benchmarks {
 		let era = CurrentEra::<T>::get().unwrap();
 		ActiveEra::<T>::put(ActiveEraInfo { index: era, start: None });
 		let slash_fraction = Perbill::from_percent(10);
+
+		T::Permissioned::setup_who_to_slash(Some(WhoToSlash::Validator));
 
 		#[extrinsic_call]
 		_(RawOrigin::Root, validator_stash.clone(), era, slash_fraction);
