@@ -89,7 +89,7 @@
 
 extern crate alloc;
 mod address;
-mod benchmarking;
+pub mod benchmarking;
 mod exec;
 mod gas;
 mod primitives;
@@ -105,6 +105,10 @@ pub mod debug;
 pub mod migration;
 pub mod test_utils;
 pub mod weights;
+
+pub mod polymesh_hooks;
+
+pub use polymesh_hooks::{PolymeshHooks, DefaultPolymeshHooks};
 
 #[cfg(test)]
 mod tests;
@@ -485,6 +489,10 @@ pub mod pallet {
 			<Self as frame_system::Config>::RuntimeCall,
 			BlockNumberFor<Self>,
 		>;
+
+		/// Polymesh hooks.
+		#[pallet::no_default_bounds]
+		type PolymeshHooks: PolymeshHooks<Self>;
 	}
 
 	/// Container for different types that implement [`DefaultConfig`]` of this pallet.
@@ -574,6 +582,7 @@ pub mod pallet {
 			type Environment = ();
 			type ApiVersion = ();
 			type Xcm = ();
+			type PolymeshHooks = DefaultPolymeshHooks;
 		}
 	}
 
@@ -858,6 +867,10 @@ pub mod pallet {
 		) -> DispatchResult {
 			Migration::<T>::ensure_migrated()?;
 			let origin = T::UploadOrigin::ensure_origin(origin)?;
+			// Polymesh change
+            // -----------------------------------------------------------------
+			T::PolymeshHooks::check_call_permissions(&origin)?;
+			// -----------------------------------------------------------------
 			Self::bare_upload_code(origin, code, storage_deposit_limit.map(Into::into), determinism)
 				.map(|_| ())
 		}
@@ -874,6 +887,10 @@ pub mod pallet {
 		) -> DispatchResultWithPostInfo {
 			Migration::<T>::ensure_migrated()?;
 			let origin = ensure_signed(origin)?;
+			// Polymesh change
+            // -----------------------------------------------------------------
+			T::PolymeshHooks::check_call_permissions(&origin)?;
+			// -----------------------------------------------------------------
 			<WasmBlob<T>>::remove(&origin, code_hash)?;
 			// we waive the fee because removing unused code is beneficial
 			Ok(Pays::No.into())
@@ -952,6 +969,12 @@ pub mod pallet {
 				storage_deposit_limit: storage_deposit_limit.map(Into::into),
 				debug_message: None,
 			};
+			// Polymesh change
+            // -----------------------------------------------------------------
+			if let Origin::Signed(origin) = &common.origin {
+				T::PolymeshHooks::check_call_permissions(origin)?;
+			}
+			// -----------------------------------------------------------------
 			let dest = T::Lookup::lookup(dest)?;
 			let mut output =
 				CallInput::<T> { dest, determinism: Determinism::Enforced }.run_guarded(common);
@@ -1009,6 +1032,11 @@ pub mod pallet {
 			// differ.
 			let upload_origin = T::UploadOrigin::ensure_origin(origin.clone())?;
 			let instantiate_origin = T::InstantiateOrigin::ensure_origin(origin)?;
+
+			// Polymesh change
+			// -----------------------------------------------------------------
+			T::PolymeshHooks::check_call_permissions(&upload_origin)?;
+			// -----------------------------------------------------------------
 
 			let code_len = code.len() as u32;
 
@@ -1079,6 +1107,12 @@ pub mod pallet {
 				storage_deposit_limit: storage_deposit_limit.map(Into::into),
 				debug_message: None,
 			};
+			// Polymesh change
+            // -----------------------------------------------------------------
+			if let Origin::Signed(origin) = &common.origin {
+				T::PolymeshHooks::check_call_permissions(origin)?;
+			}
+			// -----------------------------------------------------------------
 			let mut output = InstantiateInput::<T> { code: WasmCode::CodeHash(code_hash), salt }
 				.run_guarded(common);
 			if let Ok(retval) = &output.result {
@@ -1919,7 +1953,10 @@ impl<T: Config> Pallet<T> {
 
 	/// Return the existential deposit of [`Config::Currency`].
 	fn min_balance() -> BalanceOf<T> {
-		<T::Currency as Inspect<AccountIdOf<T>>>::minimum_balance()
+		// Polymesh change: Return a non-zero existential amount
+        // -----------------------------------------------------------------
+		1u32.into()
+		// -----------------------------------------------------------------
 	}
 
 	/// Convert gas_limit from 1D Weight to a 2D Weight.
@@ -1928,6 +1965,14 @@ impl<T: Config> Pallet<T> {
 	/// zero or an old `Call` will just fail with OutOfGas.
 	fn compat_weight_limit(gas_limit: OldWeight) -> Weight {
 		Weight::from_parts(gas_limit, u64::from(T::MaxCodeLen::get()) * 2)
+	}
+
+	/// Transfer some funds from `from` to `to`.
+	pub fn on_instantiate_transfer(
+		caller: &T::AccountId,
+		contract: &T::AccountId,
+	) -> frame_support::dispatch::DispatchResult {
+		T::PolymeshHooks::on_instantiate_transfer(caller, contract)
 	}
 }
 
