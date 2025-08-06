@@ -19,7 +19,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 mod call_builder;
-mod code;
+pub mod code;
 mod sandbox;
 use self::{
 	call_builder::CallSetup,
@@ -105,6 +105,12 @@ where
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let salt = vec![0xff];
 		let addr = Contracts::<T>::contract_address(&caller, &module.hash, &data, &salt);
+
+		// Polymesh change
+        // -----------------------------------------------------------------
+		// Required for linking the contract to a did
+		T::PolymeshHooks::register_did(caller.clone())?;
+		// -----------------------------------------------------------------
 
 		Contracts::<T>::store_code_raw(module.code, caller.clone())?;
 		Contracts::<T>::instantiate(
@@ -487,7 +493,11 @@ mod benchmarks {
 		let input = vec![42u8; i as usize];
 		let salt = vec![42u8; s as usize];
 		let value = Pallet::<T>::min_balance();
-		let caller = whitelisted_caller();
+		let caller: T::AccountId = whitelisted_caller();
+		// Polymesh change
+        // -----------------------------------------------------------------
+		T::PolymeshHooks::register_did(caller.clone()).unwrap();
+		// -----------------------------------------------------------------
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let WasmModule { code, hash, .. } = WasmModule::<T>::sized(c, Location::Call, false);
 		let origin = RawOrigin::Signed(caller.clone());
@@ -518,7 +528,11 @@ mod benchmarks {
 		let input = vec![42u8; i as usize];
 		let salt = vec![42u8; s as usize];
 		let value = Pallet::<T>::min_balance();
-		let caller = whitelisted_caller();
+		let caller: T::AccountId = whitelisted_caller();
+		// Polymesh change
+        // -----------------------------------------------------------------
+		T::PolymeshHooks::register_did(caller.clone())?;
+		// -----------------------------------------------------------------
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let WasmModule { code, hash, .. } = WasmModule::<T>::dummy();
 		let addr = Contracts::<T>::contract_address(&caller, &hash, &input, &salt);
@@ -580,7 +594,11 @@ mod benchmarks {
 	// `c`: Size of the code in bytes.
 	#[benchmark(pov_mode = Measured)]
 	fn upload_code_determinism_enforced(c: Linear<0, { T::MaxCodeLen::get() }>) {
-		let caller = whitelisted_caller();
+		let caller: T::AccountId = whitelisted_caller();
+		// Polymesh change
+        // -----------------------------------------------------------------
+		T::PolymeshHooks::register_did(caller.clone()).unwrap();
+		// -----------------------------------------------------------------
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let WasmModule { code, hash, .. } = WasmModule::<T>::sized(c, Location::Call, false);
 		let origin = RawOrigin::Signed(caller.clone());
@@ -596,7 +614,11 @@ mod benchmarks {
 	// [`Determinism::Enforced`] first.
 	#[benchmark(pov_mode = Measured)]
 	fn upload_code_determinism_relaxed(c: Linear<0, { T::MaxCodeLen::get() }>) {
-		let caller = whitelisted_caller();
+		let caller: T::AccountId = whitelisted_caller();
+		// Polymesh change
+        // -----------------------------------------------------------------
+		T::PolymeshHooks::register_did(caller.clone()).unwrap();
+		// -----------------------------------------------------------------
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let WasmModule { code, hash, .. } = WasmModule::<T>::sized(c, Location::Call, true);
 		let origin = RawOrigin::Signed(caller.clone());
@@ -613,7 +635,11 @@ mod benchmarks {
 	// item (`CodeInfoOf`).
 	#[benchmark(pov_mode = Measured)]
 	fn remove_code() -> Result<(), BenchmarkError> {
-		let caller = whitelisted_caller();
+		let caller: T::AccountId = whitelisted_caller();
+		// Polymesh change
+        // -----------------------------------------------------------------
+		T::PolymeshHooks::register_did(caller.clone())?;
+		// -----------------------------------------------------------------
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let WasmModule { code, hash, .. } = WasmModule::<T>::dummy();
 		let origin = RawOrigin::Signed(caller.clone());
@@ -926,7 +952,11 @@ mod benchmarks {
 		n: Linear<0, { T::MaxDelegateDependencies::get() }>,
 	) -> Result<(), BenchmarkError> {
 		let beneficiary = account::<T::AccountId>("beneficiary", 0, 0);
-		let caller = whitelisted_caller();
+		let caller: T::AccountId = whitelisted_caller();
+		// Polymesh change
+        // -----------------------------------------------------------------
+		T::PolymeshHooks::register_did(caller.clone())?;
+		// -----------------------------------------------------------------
 
 		build_runtime!(runtime, memory: [beneficiary.encode(),]);
 
