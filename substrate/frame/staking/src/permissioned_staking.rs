@@ -51,7 +51,9 @@ pub trait PermissionedStaking<T: Config> {
 	}
 
 	/// Schedule reward payouts.
-	fn schedule_payouts(_active_era: &ActiveEraInfo) {}
+	fn schedule_payouts(_active_era: &ActiveEraInfo) -> DispatchResult {
+		Ok(())
+	}
 
 	/// Who should be slashed?
 	fn who_to_slash() -> Option<WhoToSlash> {

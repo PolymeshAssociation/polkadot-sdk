@@ -29,7 +29,7 @@ use frame_support::{
 			hold::{Balanced as FunHoldBalanced, Mutate as FunHoldMutate},
 			Mutate as FunMutate,
 		},
-		Contains, Defensive, DefensiveSaturating, EnsureOrigin, EstimateNextNewSession, Get,
+		Contains, Defensive, EnsureOrigin, EstimateNextNewSession, Get,
 		InspectLockableCurrency, Nothing, OnUnbalanced, UnixTime,
 	},
 	weights::Weight,
