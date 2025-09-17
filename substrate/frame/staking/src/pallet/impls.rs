@@ -98,7 +98,7 @@ impl<T: Config> Pallet<T> {
 	/// instead of using the [`StakingLedger`] API since the bond and/or ledger may be corrupted.
 	/// It is also meant to check state for direct bonds and may not work as expected for virtual
 	/// bonds.
-	pub(crate) fn inspect_bond_state(
+	pub fn inspect_bond_state(
 		stash: &T::AccountId,
 	) -> Result<LedgerIntegrityState, Error<T>> {
 		let hold_or_lock = match asset::staked::<T>(&stash) {
@@ -813,7 +813,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Clear all era information for given era.
-	pub(crate) fn clear_era_information(era_index: EraIndex) {
+	pub fn clear_era_information(era_index: EraIndex) {
 		// FIXME: We can possibly set a reasonable limit since we do this only once per era and
 		// clean up state across multiple blocks.
 		let mut cursor = <ErasStakers<T>>::clear_prefix(era_index, u32::MAX, None);

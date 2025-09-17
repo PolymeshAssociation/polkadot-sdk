@@ -108,7 +108,7 @@ pub struct SlashingSpans {
 impl SlashingSpans {
 	// creates a new record of slashing spans for a stash, starting at the beginning
 	// of the bonding period, relative to now.
-	pub(crate) fn new(window_start: EraIndex) -> Self {
+	pub fn new(window_start: EraIndex) -> Self {
 		SlashingSpans {
 			span_index: 0,
 			last_start: window_start,
