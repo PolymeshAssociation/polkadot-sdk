@@ -813,7 +813,7 @@ mod benchmarks {
 		add_slashing_spans::<T>(&stash, s);
 		let l =
 			StakingLedger::<T>::new(stash.clone(), minimum_balance::<T>());
-		T::Currency::make_free_balance_be(&stash, 0u32.into());
+		asset::set_stakeable_balance::<T>(&stash, 0u32.into());
 		Ledger::<T>::insert(&controller, l);
 
 		assert!(Bonded::<T>::contains_key(&stash));
