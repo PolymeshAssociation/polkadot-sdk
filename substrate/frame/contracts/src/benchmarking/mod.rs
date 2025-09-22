@@ -496,7 +496,7 @@ mod benchmarks {
 		let caller: T::AccountId = whitelisted_caller();
 		// Polymesh change
         // -----------------------------------------------------------------
-		T::PolymeshHooks::register_did(caller.clone())?;
+		T::PolymeshHooks::register_did(caller.clone()).unwrap();
 		// -----------------------------------------------------------------
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let WasmModule { code, hash, .. } = WasmModule::<T>::sized(c, Location::Call, false);
@@ -597,7 +597,7 @@ mod benchmarks {
 		let caller: T::AccountId = whitelisted_caller();
 		// Polymesh change
         // -----------------------------------------------------------------
-		T::PolymeshHooks::register_did(caller.clone())?;
+		T::PolymeshHooks::register_did(caller.clone()).unwrap();
 		// -----------------------------------------------------------------
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let WasmModule { code, hash, .. } = WasmModule::<T>::sized(c, Location::Call, false);
@@ -617,7 +617,7 @@ mod benchmarks {
 		let caller: T::AccountId = whitelisted_caller();
 		// Polymesh change
         // -----------------------------------------------------------------
-		T::PolymeshHooks::register_did(caller.clone())?;
+		T::PolymeshHooks::register_did(caller.clone()).unwrap();
 		// -----------------------------------------------------------------
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let WasmModule { code, hash, .. } = WasmModule::<T>::sized(c, Location::Call, true);
