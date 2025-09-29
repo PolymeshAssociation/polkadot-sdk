@@ -18,7 +18,11 @@
 //! Staking pallet benchmarking.
 
 use super::*;
-use crate::{asset, ConfigOp, Pallet as Staking};
+use crate::{
+	asset,
+	permissioned_staking::{PermissionedStaking, WhoToSlash},
+	ConfigOp, Pallet as Staking,
+};
 use testing_utils::*;
 
 use codec::Decode;
@@ -258,11 +262,8 @@ mod benchmarks {
 			.map(|l| l.active)
 			.ok_or("ledger not created after")?;
 
-		let _ = asset::mint_into_existing::<T>(
-			&stash,
-			max_additional + minimum_balance::<T>(),
-		)
-		.unwrap();
+		let _ = asset::mint_into_existing::<T>(&stash, max_additional + minimum_balance::<T>())
+			.unwrap();
 
 		whitelist_account!(stash);
 
@@ -811,8 +812,7 @@ mod benchmarks {
 		let stash = scenario.origin_stash1;
 
 		add_slashing_spans::<T>(&stash, s);
-		let l =
-			StakingLedger::<T>::new(stash.clone(), minimum_balance::<T>());
+		let l = StakingLedger::<T>::new(stash.clone(), minimum_balance::<T>());
 		asset::set_stakeable_balance::<T>(&stash, 0u32.into());
 		Ledger::<T>::insert(&controller, l);
 
@@ -1178,6 +1178,8 @@ mod benchmarks {
 		let era = CurrentEra::<T>::get().unwrap();
 		ActiveEra::<T>::put(ActiveEraInfo { index: era, start: None });
 		let slash_fraction = Perbill::from_percent(10);
+
+		T::Permissioned::setup_who_to_slash(Some(WhoToSlash::Validator));
 
 		#[extrinsic_call]
 		_(RawOrigin::Root, validator_stash.clone(), era, slash_fraction);

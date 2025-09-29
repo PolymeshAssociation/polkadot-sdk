@@ -288,7 +288,7 @@ pub(crate) fn compute_slash<T: Config>(
 	// Polymesh change
 	// -----------------------------------------------------------------
 	if T::Permissioned::slash_nominators() {
-		reward_payout += 
+		reward_payout +=
 			slash_nominators::<T>(params.clone(), prior_slash_p, &mut nominators_slashed);
 	}
 	// -----------------------------------------------------------------

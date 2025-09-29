@@ -29,8 +29,8 @@ use frame_support::{
 			hold::{Balanced as FunHoldBalanced, Mutate as FunHoldMutate},
 			Mutate as FunMutate,
 		},
-		Contains, Defensive, EnsureOrigin, EstimateNextNewSession, Get,
-		InspectLockableCurrency, Nothing, OnUnbalanced, UnixTime,
+		Contains, Defensive, EnsureOrigin, EstimateNextNewSession, Get, InspectLockableCurrency,
+		Nothing, OnUnbalanced, UnixTime,
 	},
 	weights::Weight,
 	BoundedVec,
@@ -703,8 +703,7 @@ pub mod pallet {
 	/// `[active_era - bounding_duration; active_era]`
 	#[pallet::storage]
 	#[pallet::unbounded]
-	pub type BondedEras<T: Config> =
-		StorageValue<_, Vec<(EraIndex, SessionIndex)>, ValueQuery>;
+	pub type BondedEras<T: Config> = StorageValue<_, Vec<(EraIndex, SessionIndex)>, ValueQuery>;
 
 	/// All slashing events on validators, mapped by era to the highest slash proportion
 	/// and slash value of the era.

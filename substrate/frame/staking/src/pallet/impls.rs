@@ -65,8 +65,7 @@ use sp_runtime::TryRuntimeError;
 
 // Polymesh change
 // -----------------------------------------------------------------
-use crate::permissioned_staking::PermissionedStaking;
-use crate::UnlockChunk;
+use crate::{permissioned_staking::PermissionedStaking, UnlockChunk};
 // -----------------------------------------------------------------
 
 /// The maximum number of iterations that we do whilst iterating over `T::VoterList` in
@@ -98,9 +97,7 @@ impl<T: Config> Pallet<T> {
 	/// instead of using the [`StakingLedger`] API since the bond and/or ledger may be corrupted.
 	/// It is also meant to check state for direct bonds and may not work as expected for virtual
 	/// bonds.
-	pub fn inspect_bond_state(
-		stash: &T::AccountId,
-	) -> Result<LedgerIntegrityState, Error<T>> {
+	pub fn inspect_bond_state(stash: &T::AccountId) -> Result<LedgerIntegrityState, Error<T>> {
 		let hold_or_lock = match asset::staked::<T>(&stash) {
 			x if x.is_zero() => {
 				let locked = T::OldCurrency::balance_locked(STAKING_ID, &stash).into();
@@ -206,8 +203,9 @@ impl<T: Config> Pallet<T> {
 		let new_total = ledger.total;
 
 		let used_weight = {
-			if ledger.unlocking.is_empty()
-				&& (T::Permissioned::reapable(ledger.active) || ledger.active.is_zero()) {
+			if ledger.unlocking.is_empty() &&
+				(T::Permissioned::reapable(ledger.active) || ledger.active.is_zero())
+			{
 				// This account must have called `unbond()` with some value that caused the active
 				// portion to fall below existential deposit + will have no more unlocking chunks
 				// left. We can now safely remove all staking-related information.
@@ -963,7 +961,7 @@ impl<T: Config> Pallet<T> {
 			} else if Validators::<T>::contains_key(&voter) {
 				validators_seen.saturating_inc();
 				// Polymesh change: check if the validator is compliant
-				if T::Permissioned::is_validator_compliant(&voter) {				
+				if T::Permissioned::is_validator_compliant(&voter) {
 					// if this voter is a validator:
 					let self_vote = (
 						voter.clone(),
@@ -1413,11 +1411,8 @@ impl<T: Config> Pallet<T> {
 		consumed_weight
 	}
 
-	pub fn unbond_balance(
-		mut ledger: StakingLedger<T>,
-		value: BalanceOf<T>,
-	) -> DispatchResult {
-		let mut value = value.min(ledger.active);	
+	pub fn unbond_balance(mut ledger: StakingLedger<T>, value: BalanceOf<T>) -> DispatchResult {
+		let mut value = value.min(ledger.active);
 		let stash = ledger.stash.clone();
 
 		if !value.is_zero() {

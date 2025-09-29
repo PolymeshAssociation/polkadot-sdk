@@ -1,5 +1,4 @@
-use frame_support::dispatch::DispatchResult;
-use frame_support::traits::fungible::Inspect;
+use frame_support::{dispatch::DispatchResult, traits::fungible::Inspect};
 use sp_runtime::Perbill;
 
 use crate::{ActiveEraInfo, BalanceOf, Config};
@@ -21,6 +20,10 @@ pub trait PermissionedStaking<T: Config> {
 	/// Setup stash and controller.
 	#[cfg(any(feature = "runtime-benchmarks", test))]
 	fn setup_stash_and_controller(_stash: &T::AccountId, _controller: &T::AccountId) {}
+
+	/// Setup stash and controller.
+	#[cfg(feature = "runtime-benchmarks")]
+	fn setup_who_to_slash(_who_to_slash: Option<WhoToSlash>) {}
 
 	/// Check if amount is under the existential deposit.
 	fn reapable(amount: BalanceOf<T>) -> bool {

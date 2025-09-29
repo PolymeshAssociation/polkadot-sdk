@@ -28,8 +28,7 @@ use rand_chacha::{
 use sp_io::hashing::blake2_256;
 
 use frame_election_provider_support::SortedListProvider;
-use frame_support::pallet_prelude::*;
-use frame_support::traits::fungible::Inspect;
+use frame_support::{pallet_prelude::*, traits::fungible::Inspect};
 use sp_runtime::{traits::StaticLookup, Perbill};
 
 const SEED: u32 = 0;
