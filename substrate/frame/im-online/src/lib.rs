@@ -90,7 +90,7 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		EstimateNextSessionRotation, Get, OneSessionHandler, ValidatorSet,
-		ValidatorSetWithIdentification,
+		ValidatorSetWithIdentification, OnRuntimeUpgrade
 	},
 	BoundedSlice, WeakBoundedVec,
 };
@@ -439,6 +439,20 @@ pub mod pallet {
 					now,
 				)
 			}
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
+			migration::v1::Migration::<T>::pre_upgrade()
+		}
+
+		fn on_runtime_upgrade() -> Weight {
+			migration::v1::Migration::<T>::on_runtime_upgrade()
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(state: Vec<u8>) -> DispatchResult {
+			migration::v1::Migration::<T>::post_upgrade(state)
 		}
 	}
 

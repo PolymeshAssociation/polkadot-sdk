@@ -130,7 +130,7 @@ use frame_support::{
 	ensure,
 	traits::{
 		Defensive, EstimateNextNewSession, EstimateNextSessionRotation, FindAuthor, Get,
-		OneSessionHandler, ValidatorRegistration, ValidatorSet,
+		OneSessionHandler, ValidatorRegistration, ValidatorSet, OnRuntimeUpgrade
 	},
 	weights::Weight,
 	Parameter,
@@ -597,6 +597,20 @@ pub mod pallet {
 		#[cfg(feature = "try-runtime")]
 		fn try_state(_n: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
 			Self::do_try_state()
+		}
+
+		fn on_runtime_upgrade() -> Weight {
+			migrations::v1::MigrateV0ToV1::<T, migrations::v1::InitOffenceSeverity<T>>::on_runtime_upgrade()
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
+			migrations::v1::MigrateV0ToV1::<T, migrations::v1::InitOffenceSeverity<T>>::pre_upgrade()
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(state: Vec<u8>) -> Result<(), TryRuntimeError> {
+			migrations::v1::MigrateV0ToV1::<T, migrations::v1::InitOffenceSeverity<T>>::post_upgrade(state)
 		}
 	}
 

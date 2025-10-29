@@ -53,6 +53,59 @@ impl Default for ObsoleteReleases {
 #[storage_alias]
 type StorageVersion<T: Config> = StorageValue<Pallet<T>, ObsoleteReleases, ValueQuery>;
 
+pub mod v13tov16 {
+	use super::*;
+	use crate::migrations::v15::VersionUncheckedMigrateV14ToV15;
+	use crate::migrations::v16::VersionUncheckedMigrateV15ToV16;
+
+	pub struct VersionUncheckedMigrateV13ToV16<T>(core::marker::PhantomData<T>);
+
+	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV13ToV16<T> {
+	
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+			frame_support::ensure!(
+				Pallet::<T>::on_chain_storage_version() == 13,
+				"expected v13 before upgrading to v16"
+			);
+			Ok(Default::default())
+		}
+
+		fn on_runtime_upgrade() -> Weight {
+			let weight_v14 = VersionUncheckedMigrateV14ToV15::<T>::on_runtime_upgrade();
+			let weight_v15 = VersionUncheckedMigrateV15ToV16::<T>::on_runtime_upgrade();
+			weight_v14 + weight_v15
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(state: Vec<u8>) -> Result<(), TryRuntimeError> {
+			VersionUncheckedMigrateV14ToV15::<T>::post_upgrade(state)?;
+
+			// Verify severity
+			let max_severity = OffenceSeverity(Perbill::from_percent(100));
+			let new_disabled_validators = v17::DisabledValidators::<T>::get();
+			for (_, severity) in new_disabled_validators {
+				frame_support::ensure!(severity == max_severity, "Severity mismatch");
+			}
+
+			frame_support::ensure!(
+				Pallet::<T>::on_chain_storage_version() == 16,
+				"migrations not applied"
+			);
+
+			Ok(())
+		}	
+	}
+
+	pub type MigrateV13ToV16<T> = VersionedMigration<
+		13,
+		16,
+		VersionUncheckedMigrateV13ToV16<T>,
+		Pallet<T>,
+		<T as frame_system::Config>::DbWeight,
+	>;
+}
+
 /// Supports the migration of Validator Disabling from pallet-staking to pallet-session
 pub mod v17 {
 	use super::*;

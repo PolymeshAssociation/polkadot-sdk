@@ -40,7 +40,7 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	dispatch::{DispatchResultWithPostInfo, Pays},
 	pallet_prelude::Get,
-	traits::OneSessionHandler,
+	traits::{OneSessionHandler, UncheckedOnRuntimeUpgrade},
 	weights::Weight,
 	WeakBoundedVec,
 };
@@ -182,6 +182,20 @@ pub mod pallet {
 				},
 				_ => {},
 			}
+		}
+
+		fn on_runtime_upgrade() -> Weight {
+			migrations::v5::MigrateV4ToV5::<T>::on_runtime_upgrade()
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+			migrations::v5::MigrateV4ToV5::<T>::pre_upgrade()
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+			migrations::v5::MigrateV4ToV5::<T>::post_upgrade(state)
 		}
 	}
 

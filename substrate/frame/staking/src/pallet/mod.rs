@@ -30,7 +30,7 @@ use frame_support::{
 			Mutate as FunMutate,
 		},
 		Contains, Defensive, EnsureOrigin, EstimateNextNewSession, Get, InspectLockableCurrency,
-		Nothing, OnUnbalanced, UnixTime,
+		Nothing, OnUnbalanced, UnixTime, OnRuntimeUpgrade
 	},
 	weights::Weight,
 	BoundedVec,
@@ -970,7 +970,17 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_runtime_upgrade() -> frame_support::weights::Weight {
-			Weight::zero()
+			crate::migrations::v13tov16::MigrateV13ToV16::<T>::on_runtime_upgrade()
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+			crate::migrations::v13tov16::MigrateV13ToV16::<T>::pre_upgrade()
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(state: Vec<u8>) -> Result<(), TryRuntimeError> {
+			crate::migrations::v13tov16::MigrateV13ToV16::<T>::post_upgrade(state)
 		}
 
 		fn on_initialize(_now: BlockNumberFor<T>) -> Weight {

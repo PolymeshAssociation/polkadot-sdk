@@ -101,6 +101,26 @@ pub mod pallet {
 		/// \[kind, timeslot\].
 		Offence { kind: Kind, timeslot: OpaqueTimeSlot },
 	}
+
+	use frame_support::traits::OnRuntimeUpgrade;
+	use frame_system::pallet_prelude::BlockNumberFor;
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
+			migration::v1::MigrateToV1::<T>::pre_upgrade()
+		}
+
+        fn on_runtime_upgrade() -> frame_support::weights::Weight {
+            migration::v1::MigrateToV1::<T>::on_runtime_upgrade()
+        }
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(_state: Vec<u8>) -> Result<(), TryRuntimeError> {
+			migration::v1::MigrateToV1::<T>::post_upgrade()
+		}
+	}
 }
 
 impl<T, O> ReportOffence<T::AccountId, T::IdentificationTuple, O> for Pallet<T>
