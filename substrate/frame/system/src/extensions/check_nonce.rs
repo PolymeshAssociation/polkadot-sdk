@@ -25,7 +25,7 @@ use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{
 		AsSystemOriginSigner, DispatchInfoOf, Dispatchable, One, PostDispatchInfoOf,
-		TransactionExtension, ValidateResult, Zero,
+		TransactionExtension, ValidateResult,
 	},
 	transaction_validity::{
 		InvalidTransaction, TransactionLongevity, TransactionValidityError, ValidTransaction,
@@ -116,10 +116,6 @@ where
 			return Ok((Default::default(), Val::Refund(self.weight(call)), origin))
 		};
 		let account = crate::Account::<T>::get(who);
-		if account.providers.is_zero() && account.sufficients.is_zero() {
-			// Nonce storage not paid for
-			return Err(InvalidTransaction::Payment.into())
-		}
 		if self.0 < account.nonce {
 			return Err(InvalidTransaction::Stale.into())
 		}
