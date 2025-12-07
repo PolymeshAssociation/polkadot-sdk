@@ -72,10 +72,6 @@ impl<T: Config> CheckNonce<T> {
 		nonce: T::Nonce,
 	) -> Result<ValidNonceInfo, TransactionValidityError> {
 		let account = crate::Account::<T>::get(who);
-		if account.providers.is_zero() && account.sufficients.is_zero() {
-			// Nonce storage not paid for
-			return Err(InvalidTransaction::Payment.into());
-		}
 		if nonce < account.nonce {
 			return Err(InvalidTransaction::Stale.into());
 		}
