@@ -136,6 +136,7 @@ impl Config for Runtime {
 	type LengthToFee = TransactionByteFee;
 	type FeeMultiplierUpdate = ();
 	type WeightInfo = MockWeights;
+	type ChargeFees = ();
 }
 
 #[cfg(feature = "runtime-benchmarks")]
