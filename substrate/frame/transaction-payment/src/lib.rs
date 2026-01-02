@@ -84,6 +84,19 @@ mod payment;
 mod types;
 pub mod weights;
 
+/// Charge fees control trait.
+/// Implementations of this trait decide whether transaction fees are charged or not.
+pub trait ChargeFeesControl {
+	/// Returns `true` if charging fees is disabled.
+	fn disabled() -> bool;
+}
+
+impl ChargeFeesControl for () {
+	fn disabled() -> bool {
+		false
+	}
+}
+
 /// Fee multiplier.
 pub type Multiplier = FixedU128;
 
@@ -344,6 +357,7 @@ pub mod pallet {
 			type FeeMultiplierUpdate = ();
 			type OperationalFeeMultiplier = ();
 			type WeightInfo = ();
+			type ChargeFees = ();
 		}
 	}
 
@@ -400,6 +414,9 @@ pub mod pallet {
 
 		/// The weight information of this pallet.
 		type WeightInfo: WeightInfo;
+
+		/// Charge fees can be disabled for special runtimes.
+		type ChargeFees: ChargeFeesControl;
 	}
 
 	#[pallet::type_value]
@@ -665,6 +682,11 @@ impl<T: Config> Pallet<T> {
 		pays_fee: Pays,
 		class: DispatchClass,
 	) -> FeeDetails<BalanceOf<T>> {
+		// Check if transaction fees are disabled.
+		if T::ChargeFees::disabled() {
+			return FeeDetails { inclusion_fee: None, tip }
+		}
+
 		if pays_fee == Pays::Yes {
 			// the adjustable part of the fee.
 			let unadjusted_weight_fee = Self::weight_to_fee(weight);
