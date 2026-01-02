@@ -29,6 +29,7 @@ frame_benchmarking::define_benchmarks!(
 	[frame_system_extensions, SystemExtensionsBench::<Runtime>]
 	[pallet_balances, Balances]
 	[pallet_timestamp, Timestamp]
+	[pallet_transaction_payment, TransactionPayment]
 	[pallet_sudo, Sudo]
 	[pallet_template, Template]
 );
