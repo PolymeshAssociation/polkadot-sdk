@@ -10784,7 +10784,6 @@ dependencies = [
  "cc",
  "libc",
  "libz-sys",
- "tikv-jemalloc-sys",
 ]
 
 [[package]]
@@ -24925,6 +24924,7 @@ name = "solochain-template-node"
 version = "0.0.0"
 dependencies = [
  "clap",
+ "frame-benchmarking",
  "frame-benchmarking-cli",
  "frame-metadata-hash-extension",
  "frame-system",
