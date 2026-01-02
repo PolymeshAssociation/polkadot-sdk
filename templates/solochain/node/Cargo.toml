@@ -19,6 +19,8 @@ workspace = true
 
 [dependencies]
 clap = { features = ["derive"], workspace = true }
+frame-benchmarking.default-features = true
+frame-benchmarking.workspace = true
 frame-benchmarking-cli.default-features = true
 frame-benchmarking-cli.workspace = true
 frame-metadata-hash-extension.default-features = true
@@ -92,6 +94,7 @@ default = ["std"]
 std = ["solochain-template-runtime/std"]
 # Dependencies that are only required if runtime benchmarking should be build.
 runtime-benchmarks = [
+	"frame-benchmarking/runtime-benchmarks",
 	"frame-benchmarking-cli/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
