@@ -66,7 +66,7 @@ pub struct AccountInfo<T: Config> {
 
 	// The  amount that was transferred to this account that is less than the
 	// NativeToEthRatio, and can be represented in the native currency
-	pub dust: u32,
+	pub dust: u64,
 }
 
 /// The account type is used to distinguish between contracts and externally owned accounts.
