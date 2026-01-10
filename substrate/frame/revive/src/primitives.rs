@@ -127,7 +127,7 @@ pub struct BalanceWithDust<Balance> {
 	value: Balance,
 	/// The dust, representing up to 1 unit of the native currency.
 	/// The dust is bounded between 0 and `crate::Config::NativeToEthRatio`
-	dust: u32,
+	dust: u64,
 }
 
 impl<Balance> From<Balance> for BalanceWithDust<Balance> {
@@ -138,12 +138,12 @@ impl<Balance> From<Balance> for BalanceWithDust<Balance> {
 
 impl<Balance> BalanceWithDust<Balance> {
 	/// Deconstructs the `BalanceWithDust` into its components.
-	pub fn deconstruct(self) -> (Balance, u32) {
+	pub fn deconstruct(self) -> (Balance, u64) {
 		(self.value, self.dust)
 	}
 
 	/// Creates a new `BalanceWithDust` with the given value and dust.
-	pub fn new_unchecked<T: Config>(value: Balance, dust: u32) -> Self {
+	pub fn new_unchecked<T: Config>(value: Balance, dust: u64) -> Self {
 		debug_assert!(dust < T::NativeToEthRatio::get());
 		Self { value, dust }
 	}

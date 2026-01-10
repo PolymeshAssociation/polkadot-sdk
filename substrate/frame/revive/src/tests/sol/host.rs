@@ -34,7 +34,7 @@ use test_case::test_case;
 fn convert_to_free_balance(total_balance: u128) -> U256 {
 	let existential_deposit_planck =
 		<Test as pallet_balances::Config>::ExistentialDeposit::get() as u128;
-	let native_to_eth = <<Test as Config>::NativeToEthRatio as Get<u32>>::get() as u128;
+	let native_to_eth = <<Test as Config>::NativeToEthRatio as Get<u64>>::get() as u128;
 	U256::from((total_balance - existential_deposit_planck) * native_to_eth)
 }
 
