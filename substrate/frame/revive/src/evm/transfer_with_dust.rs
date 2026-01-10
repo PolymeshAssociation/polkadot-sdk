@@ -49,7 +49,7 @@ fn transfer_balance<T: Config>(
 fn transfer_dust<T: Config>(
 	from: &mut AccountInfo<T>,
 	to: &mut AccountInfo<T>,
-	dust: u32,
+	dust: u64,
 ) -> DispatchResult {
 	from.dust = from.dust.checked_sub(dust).ok_or_else(|| Error::<T>::TransferFailed)?;
 	to.dust = to.dust.checked_add(dust).ok_or_else(|| Error::<T>::TransferFailed)?;
@@ -64,7 +64,7 @@ fn transfer_dust<T: Config>(
 fn ensure_sufficient_dust<T: Config>(
 	from: &AccountIdOf<T>,
 	from_info: &mut AccountInfo<T>,
-	required_dust: u32,
+	required_dust: u64,
 ) -> DispatchResult {
 	if from_info.dust >= required_dust {
 		return Ok(());
@@ -211,7 +211,7 @@ mod tests {
 			expected_error: Option<DispatchError>,
 		}
 
-		let plank: u32 = <Test as Config>::NativeToEthRatio::get();
+		let plank: u64 = <Test as Config>::NativeToEthRatio::get();
 
 		let test_cases = vec![
 			TestCase {
@@ -395,7 +395,7 @@ mod tests {
 
 	#[test]
 	fn burn_with_dust_redirects_to_on_burn() {
-		let plank: u32 = <Test as Config>::NativeToEthRatio::get();
+		let plank: u64 = <Test as Config>::NativeToEthRatio::get();
 		let burn_dest = BurnDestination::get();
 
 		struct TestCase {

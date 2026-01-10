@@ -301,7 +301,7 @@ mod benchmarks {
 		let value = Pallet::<T>::min_balance();
 		let dust = 42u32 * d;
 		let evm_value =
-			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, dust));
+			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, dust.into()));
 		let caller = whitelisted_caller();
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let VmBinaryModule { code, .. } = VmBinaryModule::sized(c);
@@ -449,7 +449,7 @@ mod benchmarks {
 		let value = Pallet::<T>::min_balance();
 		let dust = 42u32 * d;
 		let evm_value =
-			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, dust));
+			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, dust.into()));
 
 		// need to pass the overdraw check
 		<T as Config>::FeeInfo::deposit_txfee(
@@ -830,7 +830,7 @@ mod benchmarks {
 		build_runtime!(runtime, contract, memory: [[0u8;32], ]);
 		contract.set_balance(BalanceWithDust::new_unchecked::<T>(
 			Pallet::<T>::min_balance() * 2u32.into(),
-			42u32,
+			42u64,
 		));
 
 		let result;
@@ -1898,7 +1898,7 @@ mod benchmarks {
 		let value: BalanceOf<T> = (1_000_000u32 * t).into();
 		let dust = 100u32 * d;
 		let evm_value =
-			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, dust));
+			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, dust.into()));
 		let value_bytes = evm_value.encode();
 
 		let deposit: BalanceOf<T> = (u32::MAX - 100).into();
@@ -2054,7 +2054,7 @@ mod benchmarks {
 		let value: BalanceOf<T> = (1_000_000u32 * t).into();
 		let dust = 100u32 * d;
 		let evm_value =
-			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, dust));
+			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, dust.into()));
 		let value_bytes = evm_value.encode();
 		let value_len = value_bytes.len() as u32;
 
@@ -2132,7 +2132,7 @@ mod benchmarks {
 		let value = {
 			let value: BalanceOf<T> = (1_000_000u32 * t).into();
 			let dust = 100u32 * d;
-			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, dust))
+			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, dust.into()))
 		};
 
 		let init_code = vec![BENCH_INIT_CODE; i as usize];

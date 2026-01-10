@@ -322,7 +322,7 @@ pub mod pallet {
 
 		/// The ratio between the decimal representation of the native token and the ETH token.
 		#[pallet::constant]
-		type NativeToEthRatio: Get<u32>;
+		type NativeToEthRatio: Get<u64>;
 
 		/// Set to [`crate::evm::fees::Info`] for a production runtime.
 		///
@@ -447,7 +447,7 @@ pub mod pallet {
 			type RuntimeMemory = ConstU32<{ 128 * 1024 * 1024 }>;
 			type PVFMemory = ConstU32<{ 512 * 1024 * 1024 }>;
 			type ChainId = ConstU64<42>;
-			type NativeToEthRatio = ConstU32<1_000_000>;
+			type NativeToEthRatio = ConstU64<1_000_000>;
 			type FindAuthor = ();
 			type FeeInfo = ();
 			type MaxEthExtrinsicWeight = MaxEthExtrinsicWeight;
@@ -2249,7 +2249,7 @@ impl<T: Config> Pallet<T> {
 	/// Adds the existential deposit and returns the native balance plus the dust.
 	pub fn new_balance_with_dust(
 		evm_value: U256,
-	) -> Result<(BalanceOf<T>, u32), BalanceConversionError> {
+	) -> Result<(BalanceOf<T>, u64), BalanceConversionError> {
 		let ed = T::Currency::minimum_balance();
 		let balance_with_dust = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(evm_value)?;
 		let (value, dust) = balance_with_dust.deconstruct();
@@ -2883,7 +2883,7 @@ sp_api::decl_runtime_apis! {
 		fn code(address: H160) -> Vec<u8>;
 
 		/// Construct the new balance and dust components of this EVM balance.
-		fn new_balance_with_dust(balance: U256) -> Result<(Balance, u32), BalanceConversionError>;
+		fn new_balance_with_dust(balance: U256) -> Result<(Balance, u64), BalanceConversionError>;
 	}
 }
 
@@ -3185,7 +3185,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					<Self as $crate::Config>::AddressMapper::to_account_id(&address)
 				}
 
-				fn new_balance_with_dust(balance: $crate::U256) -> Result<(Balance, u32), $crate::BalanceConversionError> {
+				fn new_balance_with_dust(balance: $crate::U256) -> Result<(Balance, u64), $crate::BalanceConversionError> {
 					$crate::Pallet::<Self>::new_balance_with_dust(balance)
 				}
 			}
