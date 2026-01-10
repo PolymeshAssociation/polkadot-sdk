@@ -360,7 +360,7 @@ impl pallet_revive::Config for Runtime {
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
 	type Balance = Balance;
 	type Currency = Balances;
-	type NativeToEthRatio = ConstU32<1_000_000>;
+	type NativeToEthRatio = ConstU64<1_000_000>;
 	type UploadOrigin = EnsureSigned<Self::AccountId>;
 	type InstantiateOrigin = EnsureSigned<Self::AccountId>;
 	type Time = Timestamp;
