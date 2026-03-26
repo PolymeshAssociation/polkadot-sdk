@@ -1356,6 +1356,12 @@ pub mod pallet {
 			// ensure their commission is correct.
 			ensure!(prefs.commission >= MinCommission::<T>::get(), Error::<T>::CommissionTooLow);
 
+			// Polymesh change - always enforce commission cap and permissions
+			// for both new and existing validators.
+			// -----------------------------------------------------------------
+			T::Permissioned::on_validate(stash, prefs.commission)?;
+			// -----------------------------------------------------------------
+
 			// Only check limits if they are not already a validator.
 			if !Validators::<T>::contains_key(stash) {
 				// If this error is reached, we need to adjust the `MinValidatorBond` and start
@@ -1367,11 +1373,6 @@ pub mod pallet {
 						Error::<T>::TooManyValidators
 					);
 				}
-
-				// Polymesh change
-				// -----------------------------------------------------------------
-				T::Permissioned::on_validate(stash, prefs.commission)?;
-				// -----------------------------------------------------------------
 			}
 
 			Self::do_remove_nominator(stash);
