@@ -18,7 +18,7 @@
 
 use clap::Args;
 use sc_service::config::PrometheusConfig;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
 /// Parameters used to config prometheus.
 #[derive(Debug, Clone, Args)]
@@ -49,7 +49,7 @@ impl PrometheusParams {
 			None
 		} else {
 			let interface: IpAddr = if self.prometheus_external {
-				Ipv6Addr::UNSPECIFIED.into()
+				Ipv4Addr::UNSPECIFIED.into()
 			} else {
 				Ipv4Addr::LOCALHOST.into()
 			};
