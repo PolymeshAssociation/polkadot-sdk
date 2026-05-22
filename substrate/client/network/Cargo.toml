@@ -70,6 +70,7 @@ zeroize = { workspace = true, default-features = true }
 [dev-dependencies]
 assert_matches = { workspace = true }
 cid = { workspace = true }
+multihash-codetable = { workspace = true }
 multistream-select = { workspace = true }
 sc-block-builder = { default-features = true, workspace = true }
 sp-consensus = { default-features = true, workspace = true }
