@@ -602,6 +602,7 @@ impl pallet_balances::Config for Runtime {
 	type FreezeIdentifier = RuntimeFreezeReason;
 	type MaxFreezes = VariantCountOf<RuntimeFreezeReason>;
 	type DoneSlashHandler = ();
+	type Memo = ();
 }
 
 parameter_types! {
@@ -627,6 +628,7 @@ impl pallet_transaction_payment::Config for Runtime {
 		MaximumMultiplier,
 	>;
 	type WeightInfo = pallet_transaction_payment::weights::SubstrateWeight<Runtime>;
+	type ChargeFees = ();
 }
 
 pub type AssetsFreezerInstance = pallet_assets_freezer::Instance1;
@@ -769,6 +771,7 @@ impl pallet_staking::Config for Runtime {
 	type BenchmarkingConfig = StakingBenchmarkingConfig;
 	type Filter = Nothing;
 	type MaxValidatorSet = ConstU32<1000>;
+	type Permissioned = ();
 }
 
 impl pallet_fast_unstake::Config for Runtime {
