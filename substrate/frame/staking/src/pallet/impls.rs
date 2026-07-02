@@ -257,7 +257,7 @@ impl<T: Config> Pallet<T> {
 		Self::do_payout_stakers_by_page(validator_stash, era, page)
 	}
 
-	pub(super) fn do_payout_stakers_by_page(
+	pub fn do_payout_stakers_by_page(
 		validator_stash: T::AccountId,
 		era: EraIndex,
 		page: Page,
