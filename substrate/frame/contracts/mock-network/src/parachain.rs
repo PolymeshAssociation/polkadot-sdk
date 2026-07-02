@@ -97,6 +97,7 @@ impl pallet_balances::Config for Runtime {
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type WeightInfo = ();
 	type DoneSlashHandler = ();
+	type Memo = ();
 }
 
 parameter_types! {
