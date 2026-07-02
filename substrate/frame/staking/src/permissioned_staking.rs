@@ -43,6 +43,9 @@ pub trait PermissionedStaking<T: Config> {
 		Ok(())
 	}
 
+	/// On kill hook.
+	fn on_kill(_who: &T::AccountId) {}
+
 	/// Is the validator still compliant?
 	fn is_validator_compliant(_who: &T::AccountId) -> bool {
 		true
