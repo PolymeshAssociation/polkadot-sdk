@@ -98,9 +98,7 @@ impl<T: Config> Pallet<T> {
 	/// instead of using the [`StakingLedger`] API since the bond and/or ledger may be corrupted.
 	/// The method is also meant to check state for direct bonds and may not work as expected for
 	/// virtual bonds.
-	pub fn inspect_bond_state(
-		stash: &T::AccountId,
-	) -> Result<LedgerIntegrityState, Error<T>> {
+	pub fn inspect_bond_state(stash: &T::AccountId) -> Result<LedgerIntegrityState, Error<T>> {
 		let hold_or_lock = match asset::staked::<T>(&stash) {
 			x if x.is_zero() => {
 				let locked = T::OldCurrency::balance_locked(STAKING_ID, &stash).into();
@@ -207,8 +205,8 @@ impl<T: Config> Pallet<T> {
 		let new_total = ledger.total;
 
 		let used_weight = {
-			if ledger.unlocking.is_empty() &&
-				(T::Permissioned::reapable(ledger.active) || ledger.active.is_zero())
+			if ledger.unlocking.is_empty()
+				&& (T::Permissioned::reapable(ledger.active) || ledger.active.is_zero())
 			{
 				// This account must have called `unbond()` with some value that caused the active
 				// portion to fall below existential deposit + will have no more unlocking chunks
@@ -257,7 +255,7 @@ impl<T: Config> Pallet<T> {
 		Self::do_payout_stakers_by_page(validator_stash, era, page)
 	}
 
-	pub(super) fn do_payout_stakers_by_page(
+	pub fn do_payout_stakers_by_page(
 		validator_stash: T::AccountId,
 		era: EraIndex,
 		page: Page,
@@ -490,8 +488,8 @@ impl<T: Config> Pallet<T> {
 
 			// New era.
 			let maybe_new_era_validators = Self::try_trigger_new_era(session_index, is_genesis);
-			if maybe_new_era_validators.is_some() &&
-				matches!(ForceEra::<T>::get(), Forcing::ForceNew)
+			if maybe_new_era_validators.is_some()
+				&& matches!(ForceEra::<T>::get(), Forcing::ForceNew)
 			{
 				Self::set_force_era(Forcing::NotForcing);
 			}
@@ -922,8 +920,8 @@ impl<T: Config> Pallet<T> {
 		let mut min_active_stake = u64::MAX;
 
 		let mut sorted_voters = T::VoterList::iter();
-		while all_voters.len() < final_predicted_len as usize &&
-			voters_seen < (NPOS_MAX_ITERATIONS_COEFFICIENT * final_predicted_len as u32)
+		while all_voters.len() < final_predicted_len as usize
+			&& voters_seen < (NPOS_MAX_ITERATIONS_COEFFICIENT * final_predicted_len as u32)
 		{
 			let voter = match sorted_voters.next() {
 				Some(voter) => {
@@ -1034,8 +1032,8 @@ impl<T: Config> Pallet<T> {
 		let mut validators_seen = 0;
 
 		let mut targets_iter = T::TargetList::iter();
-		while all_targets.len() < final_predicted_len as usize &&
-			targets_seen < (NPOS_MAX_ITERATIONS_COEFFICIENT * final_predicted_len as u32)
+		while all_targets.len() < final_predicted_len as usize
+			&& targets_seen < (NPOS_MAX_ITERATIONS_COEFFICIENT * final_predicted_len as u32)
 		{
 			let target = match targets_iter.next() {
 				Some(target) => {
@@ -2156,8 +2154,8 @@ impl<T: Config> StakingInterface for Pallet<T> {
 	/// There is an assumption that, this account is keyless and managed by another pallet in the
 	/// runtime. Hence, it can never sign its own transactions.
 	fn is_virtual_staker(who: &T::AccountId) -> bool {
-		frame_system::Pallet::<T>::account_nonce(who).is_zero() &&
-			VirtualStakers::<T>::contains_key(who)
+		frame_system::Pallet::<T>::account_nonce(who).is_zero()
+			&& VirtualStakers::<T>::contains_key(who)
 	}
 
 	fn slash_reward_fraction() -> Perbill {
@@ -2338,8 +2336,8 @@ impl<T: Config> Pallet<T> {
 		}
 
 		ensure!(
-			(Ledger::<T>::iter().count() == Payee::<T>::iter().count()) &&
-				(Ledger::<T>::iter().count() == Bonded::<T>::iter().count()),
+			(Ledger::<T>::iter().count() == Payee::<T>::iter().count())
+				&& (Ledger::<T>::iter().count() == Bonded::<T>::iter().count()),
 			"number of entries in payee storage items does not match the number of bonded ledgers",
 		);
 
@@ -2353,8 +2351,8 @@ impl<T: Config> Pallet<T> {
 	/// * Current validator count is bounded by the election provider's max winners.
 	fn check_count() -> Result<(), TryRuntimeError> {
 		ensure!(
-			<T as Config>::VoterList::count() ==
-				Nominators::<T>::count() + Validators::<T>::count(),
+			<T as Config>::VoterList::count()
+				== Nominators::<T>::count() + Validators::<T>::count(),
 			"wrong external count"
 		);
 		ensure!(
@@ -2435,9 +2433,10 @@ impl<T: Config> Pallet<T> {
 		ErasStakers::<T>::iter_prefix_values(era)
 			.map(|expo| {
 				ensure!(
-					expo.total ==
-						expo.own +
-							expo.others
+					expo.total
+						== expo.own
+							+ expo
+								.others
 								.iter()
 								.map(|e| e.value)
 								.fold(Zero::zero(), |acc, x| acc + x),
@@ -2470,8 +2469,8 @@ impl<T: Config> Pallet<T> {
 		ErasStakersPaged::<T>::iter_prefix((era,))
 			.map(|((validator, _page), expo)| {
 				ensure!(
-					expo.page_total ==
-						expo.others.iter().map(|e| e.value).fold(Zero::zero(), |acc, x| acc + x),
+					expo.page_total
+						== expo.others.iter().map(|e| e.value).fold(Zero::zero(), |acc, x| acc + x),
 					"wrong total exposure for the page.",
 				);
 
