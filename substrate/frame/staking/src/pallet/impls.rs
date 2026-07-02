@@ -808,6 +808,11 @@ impl<T: Config> Pallet<T> {
 		// setting of the stash in `Payee`.
 		StakingLedger::<T>::kill(&stash)?;
 
+		// Polymesh change
+		// -----------------------------------------------------------------
+		T::Permissioned::on_kill(stash);
+		// -----------------------------------------------------------------
+
 		Self::do_remove_validator(&stash);
 		Self::do_remove_nominator(&stash);
 
