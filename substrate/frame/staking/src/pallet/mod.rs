@@ -979,8 +979,10 @@ pub mod pallet {
 		}
 
 		fn on_initialize(_now: BlockNumberFor<T>) -> Weight {
-			// just return the weight of the on_finalize.
-			T::DbWeight::get().reads(1)
+			// Polymesh change
+			// -----------------------------------------------------------------
+			T::Permissioned::make_payments()
+			// -----------------------------------------------------------------
 		}
 
 		fn on_finalize(_n: BlockNumberFor<T>) {
