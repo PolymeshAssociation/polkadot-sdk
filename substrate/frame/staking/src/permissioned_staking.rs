@@ -1,7 +1,7 @@
 use frame_support::{dispatch::DispatchResult, traits::fungible::Inspect};
 use sp_runtime::Perbill;
 
-use crate::{ActiveEraInfo, BalanceOf, Config};
+use crate::{EraIndex, BalanceOf, Config};
 
 /// A trait used by the staking pallet for permissioned staking.
 ///
@@ -53,11 +53,6 @@ pub trait PermissionedStaking<T: Config> {
 		true
 	}
 
-	/// Schedule reward payouts.
-	fn schedule_payouts(_active_era: &ActiveEraInfo) -> DispatchResult {
-		Ok(())
-	}
-
 	/// Who should be slashed?
 	fn who_to_slash() -> Option<WhoToSlash> {
 		Some(WhoToSlash::ValidatorAndNominator)
@@ -72,6 +67,17 @@ pub trait PermissionedStaking<T: Config> {
 	fn slash_nominators() -> bool {
 		Self::who_to_slash() == Some(WhoToSlash::ValidatorAndNominator)
 	}
+
+	/// Adds the validators to the pending payouts list.
+	fn add_pending_payout(_era_index: EraIndex) -> DispatchResult {
+		Ok(())
+	}
+
+	/// Loops through the pending payouts and makes the payments to the validators and nominators.
+	fn make_payments() -> DispatchResult {
+		Ok(())
+	}
+
 }
 
 impl<T: Config> PermissionedStaking<T> for () {}

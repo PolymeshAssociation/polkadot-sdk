@@ -602,8 +602,7 @@ impl<T: Config> Pallet<T> {
 
 			// Polymesh change
 			// -----------------------------------------------------------------
-			// Schedule rewards
-			let _ = T::Permissioned::schedule_payouts(&active_era);
+			let _ = T::Permissioned::add_pending_payout(active_era.index);
 			// -----------------------------------------------------------------
 
 			Self::deposit_event(Event::<T>::EraPaid {
