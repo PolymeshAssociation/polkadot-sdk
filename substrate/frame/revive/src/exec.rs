@@ -1303,7 +1303,8 @@ where
 				// if we reached this point the origin has an associated account.
 				let origin = &self.origin.account_id()?;
 
-				if !frame_system::Pallet::<T>::account_exists(&account_id) {
+				// POLYMESH CHANGE: providers == 0
+				if frame_system::Pallet::<T>::providers(&account_id) == 0 {
 					let ed = <Contracts<T>>::min_balance();
 					frame.frame_meter.charge_deposit(&StorageDeposit::Charge(ed))?;
 					<Contracts<T>>::charge_deposit(None, origin, account_id, ed, self.exec_config)?;
