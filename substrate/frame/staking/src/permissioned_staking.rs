@@ -1,5 +1,4 @@
 use frame_support::{dispatch::DispatchResult, traits::fungible::Inspect};
-use frame_support::weights::Weight;
 use sp_runtime::Perbill;
 
 use crate::{EraIndex, BalanceOf, Config};
@@ -72,11 +71,6 @@ pub trait PermissionedStaking<T: Config> {
 	/// Adds all validators to the list of pending payouts for the given era.
 	fn add_pending_payouts(_era_index: EraIndex) -> DispatchResult {
 		Ok(())
-	}
-
-	/// Loops through all validators and makes payouts.
-	fn make_payments() -> frame_support::weights::Weight {
-		Weight::zero()
 	}
 }
 
