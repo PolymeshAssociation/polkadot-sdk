@@ -1357,7 +1357,7 @@ where
 			// We need to make sure that the contract's account exists before calling its
 			// constructor.
 			if entry_point == ExportedFunction::Constructor {
-				if !frame_system::Pallet::<T>::account_exists(&account_id) {
+				if frame_system::Pallet::<T>::providers(&account_id) == 0 {
 					T::Deposit::init_contract(account_id)?;
 				}
 
