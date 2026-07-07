@@ -464,7 +464,7 @@ mod tests {
 			ExtBuilder::default().build().execute_with(|| {
 				set_balance_with_dust(&ALICE_ADDR, balance);
 				// Seed the burn destination so it can receive funds.
-				let ed = <Test as Config>::Currency::minimum_balance();
+				let ed = Pallet::<Test>::min_balance();
 				<Test as Config>::Currency::set_balance(&burn_dest, ed);
 
 				let issuance_before = <Test as Config>::Currency::total_issuance();

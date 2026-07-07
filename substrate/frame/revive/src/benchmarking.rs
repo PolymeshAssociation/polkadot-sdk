@@ -69,6 +69,18 @@ use sp_consensus_babe::{
 use sp_consensus_slots::Slot;
 use sp_runtime::{generic::DigestItem, traits::Zero};
 
+// If the chain ExistentialDeposit (T::Currency::minimum_balance) is zero,
+// then `min_balance()` will return `1`, to create the contract account.
+// We need the difference of these two values to fix the asserts in the benchmarks.
+fn extra_balance<T: Config>() -> BalanceOf<T> {
+	Pallet::<T>::min_balance().saturating_sub(T::Currency::minimum_balance())
+}
+
+fn extra_evm_balance<T: Config>() -> U256 {
+	let balance = BalanceWithDust::new_unchecked::<T>(extra_balance::<T>(), 0u32.into());
+	Pallet::<T>::convert_native_to_evm(balance)
+}
+
 /// How many runs we do per API benchmark.
 ///
 /// This is picked more or less arbitrary. We experimented with different numbers until
@@ -298,7 +310,7 @@ mod benchmarks {
 		// to hit the code that charge the rounding error so that tx_cost == effective_gas_price *
 		// gas_used
 		let effective_gas_price = Pallet::<T>::evm_base_fee() + 1;
-		let value = Pallet::<T>::min_balance();
+		let value = T::Currency::minimum_balance();
 		let dust = 42u32 * d;
 		let evm_value =
 			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, dust.into()));
@@ -331,7 +343,7 @@ mod benchmarks {
 		);
 
 		// contract has the full value
-		assert_eq!(Pallet::<T>::evm_balance(&addr), evm_value);
+		assert_eq!(Pallet::<T>::evm_balance(&addr), evm_value + extra_evm_balance::<T>());
 		Ok(())
 	}
 
@@ -844,7 +856,7 @@ mod benchmarks {
 			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(
 				Pallet::<T>::min_balance(),
 				42
-			))
+			)) + extra_evm_balance::<T>()
 		);
 	}
 
@@ -873,7 +885,7 @@ mod benchmarks {
 			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(
 				Pallet::<T>::min_balance(),
 				42
-			))
+			)) + extra_evm_balance::<T>()
 		);
 	}
 
@@ -950,7 +962,7 @@ mod benchmarks {
 				input_bytes,
 			);
 		}
-		let min: U256 = crate::Pallet::<T>::convert_native_to_evm(T::Currency::minimum_balance());
+		let min: U256 = crate::Pallet::<T>::convert_native_to_evm(Pallet::<T>::min_balance());
 		let min =
 			crate::precompiles::alloy::primitives::aliases::U256::abi_decode(&min.to_big_endian())
 				.unwrap();
@@ -1934,7 +1946,7 @@ mod benchmarks {
 		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
 		assert_eq!(
 			Pallet::<T>::evm_balance(&callee_addr),
-			evm_value,
+			evm_value + extra_evm_balance::<T>(),
 			"{callee_addr:?} balance should hold {evm_value:?}"
 		);
 	}
@@ -2106,7 +2118,7 @@ mod benchmarks {
 
 		assert_eq!(
 			Pallet::<T>::evm_balance(&addr),
-			evm_value,
+			evm_value + extra_evm_balance::<T>(),
 			"{addr:?} balance should hold {evm_value:?}"
 		);
 		Ok(())
@@ -2156,7 +2168,7 @@ mod benchmarks {
 		let addr = interpreter.stack.top().unwrap().into_address();
 		assert!(AccountInfo::<T>::load_contract(&addr).is_some());
 		assert_eq!(Pallet::<T>::code(&addr).len(), revm::primitives::eip170::MAX_CODE_SIZE);
-		assert_eq!(Pallet::<T>::evm_balance(&addr), value, "balance should hold {value:?}");
+		assert_eq!(Pallet::<T>::evm_balance(&addr), value + extra_evm_balance::<T>(), "balance should hold {value:?}");
 		Ok(())
 	}
 

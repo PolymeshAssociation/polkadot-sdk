@@ -43,7 +43,7 @@ use frame_support::{
 	storage::{TransactionOutcome, with_transaction},
 	traits::{
 		Time,
-		fungible::{Inspect, Mutate},
+		fungible::Mutate,
 		tokens::Preservation,
 	},
 	weights::Weight,
@@ -1362,7 +1362,7 @@ where
 			{
 				// prefix matching pre-compiles cannot have a contract info
 				// hence we only mint once per pre-compile
-				T::Currency::mint_into(account_id, T::Currency::minimum_balance())?;
+				T::Currency::mint_into(account_id, Contracts::<T>::min_balance())?;
 				// make sure the pre-compile does not destroy its account by accident
 				<System<T>>::inc_consumers(account_id)?;
 			}
@@ -1654,7 +1654,7 @@ where
 		}
 
 		let origin = origin.account_id()?;
-		let ed = <T as Config>::Currency::minimum_balance();
+		let ed = Contracts::<T>::min_balance();
 		with_transaction(|| -> TransactionOutcome<DispatchResult> {
 			match meter
 				.charge_deposit(&StorageDeposit::Charge(ed))
@@ -1722,7 +1722,7 @@ where
 				origin,
 				contract_account,
 				origin.account_id()?,
-				Contracts::<T>::convert_native_to_evm(T::Currency::minimum_balance()),
+				Contracts::<T>::convert_native_to_evm(Contracts::<T>::min_balance()),
 				Preservation::Expendable,
 				transaction_meter,
 				exec_config,
@@ -2335,7 +2335,7 @@ where
 	}
 
 	fn minimum_balance(&self) -> U256 {
-		let min = T::Currency::minimum_balance();
+		let min = crate::Pallet::<T>::min_balance();
 		crate::Pallet::<T>::convert_native_to_evm(min)
 	}
 

@@ -28,7 +28,7 @@ use frame_support::{
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
 	pallet_prelude::PhantomData,
 	traits::{
-		fungible::{Inspect, Mutate, MutateHold},
+		fungible::{Mutate, MutateHold},
 		tokens::{Fortitude, Precision, Restriction},
 	},
 	weights::WeightMeter,
@@ -109,7 +109,7 @@ impl<T: Config> SteppedMigration for Migration<T> {
 
 		if !frame_system::Pallet::<T>::account_exists(&Pallet::<T>::account_id()) {
 			let _ =
-				T::Currency::mint_into(&Pallet::<T>::account_id(), T::Currency::minimum_balance());
+				T::Currency::mint_into(&Pallet::<T>::account_id(), Pallet::<T>::min_balance());
 		}
 
 		loop {

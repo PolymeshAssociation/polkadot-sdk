@@ -797,7 +797,7 @@ pub mod pallet {
 			if !System::<T>::account_exists(&Pallet::<T>::account_id()) {
 				let _ = T::Currency::mint_into(
 					&Pallet::<T>::account_id(),
-					T::Currency::minimum_balance(),
+					Pallet::<T>::min_balance(),
 				);
 			}
 
@@ -813,7 +813,7 @@ pub mod pallet {
 				let account_id = T::AddressMapper::to_account_id(address);
 
 				if !System::<T>::account_exists(&account_id) {
-					let _ = T::Currency::mint_into(&account_id, T::Currency::minimum_balance());
+					let _ = T::Currency::mint_into(&account_id, Pallet::<T>::min_balance());
 				}
 
 				frame_system::Account::<T>::mutate(&account_id, |info| {
@@ -2250,7 +2250,7 @@ impl<T: Config> Pallet<T> {
 	pub fn new_balance_with_dust(
 		evm_value: U256,
 	) -> Result<(BalanceOf<T>, u64), BalanceConversionError> {
-		let ed = T::Currency::minimum_balance();
+		let ed = Self::min_balance();
 		let balance_with_dust = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(evm_value)?;
 		let (value, dust) = balance_with_dust.deconstruct();
 
@@ -2663,7 +2663,9 @@ impl<T: Config> Pallet<T> {
 
 	/// Return the existential deposit of [`Config::Currency`].
 	fn min_balance() -> BalanceOf<T> {
+		// POLYMESH: .max(1)
 		<T::Currency as Inspect<AccountIdOf<T>>>::minimum_balance()
+			.max(1u32.into())
 	}
 
 	/// Deposit a pallet revive event.

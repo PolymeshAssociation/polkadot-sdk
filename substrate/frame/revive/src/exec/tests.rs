@@ -257,7 +257,7 @@ fn transfer_works() {
 		)
 		.unwrap();
 
-		let min_balance = <Test as Config>::Currency::minimum_balance();
+		let min_balance = Pallet::<Test>::min_balance();
 		assert!(min_balance > 0);
 		assert_eq!(get_balance(&ALICE), 100 - value - min_balance);
 		assert_eq!(get_balance(&BOB), min_balance + value);
@@ -279,7 +279,7 @@ fn transfer_to_nonexistent_account_works() {
 	// some funds to a nonexistent account and that those transfers
 	// are not able to reap accounts.
 	ExtBuilder::default().build().execute_with(|| {
-		let ed = <Test as Config>::Currency::minimum_balance();
+		let ed = Pallet::<Test>::min_balance();
 		let value = 1024;
 		let evm_value = Pallet::<Test>::convert_native_to_evm(value);
 		let mut meter =
@@ -489,7 +489,7 @@ fn balance_too_low() {
 	let dest = CHARLIE;
 
 	ExtBuilder::default().build().execute_with(|| {
-		let ed = <Test as Config>::Currency::minimum_balance();
+		let ed = Pallet::<Test>::min_balance();
 		set_balance(&ALICE, ed * 2);
 		set_balance(&from, ed + 99);
 		let mut meter =
@@ -605,7 +605,7 @@ fn input_data_to_instantiate() {
 		.with_code_hashes(MockLoader::code_hashes())
 		.build()
 		.execute_with(|| {
-			let min_balance = <Test as Config>::Currency::minimum_balance();
+			let min_balance = Pallet::<Test>::min_balance();
 			let mut meter =
 				TransactionMeter::<Test>::new_from_limits(WEIGHT_LIMIT, deposit_limit::<Test>())
 					.unwrap();
@@ -1109,7 +1109,7 @@ fn instantiation_work_with_success_output() {
 		.existential_deposit(15)
 		.build()
 		.execute_with(|| {
-			let min_balance = <Test as Config>::Currency::minimum_balance();
+			let min_balance = Pallet::<Test>::min_balance();
 			set_balance(&ALICE, min_balance * 1000);
 			let mut meter =
 				TransactionMeter::<Test>::new_from_limits(WEIGHT_LIMIT, min_balance * 100).unwrap();
@@ -1159,7 +1159,7 @@ fn instantiation_fails_with_failing_output() {
 		.existential_deposit(15)
 		.build()
 		.execute_with(|| {
-			let min_balance = <Test as Config>::Currency::minimum_balance();
+			let min_balance = Pallet::<Test>::min_balance();
 			let mut meter =
 				TransactionMeter::<Test>::new_from_limits(WEIGHT_LIMIT, min_balance * 100).unwrap();
 			let executable = MockExecutable::from_storage(dummy_ch, &mut meter).unwrap();
@@ -1197,7 +1197,7 @@ fn instantiation_from_contract() {
 		let instantiated_contract_address = Rc::clone(&instantiated_contract_address);
 		move |ctx, _| {
 			// Instantiate a contract and save it's address in `instantiated_contract_address`.
-			let min_balance = <Test as Config>::Currency::minimum_balance();
+			let min_balance = Pallet::<Test>::min_balance();
 			let (address, output) = ctx
 				.ext
 				.instantiate(
@@ -1220,7 +1220,7 @@ fn instantiation_from_contract() {
 		.existential_deposit(15)
 		.build()
 		.execute_with(|| {
-			let min_balance = <Test as Config>::Currency::minimum_balance();
+			let min_balance = Pallet::<Test>::min_balance();
 			set_balance(&ALICE, min_balance * 100);
 			place_contract(&BOB, instantiator_ch);
 			let origin = Origin::from_account_id(ALICE);
@@ -1262,7 +1262,7 @@ fn instantiation_traps() {
 	let instantiator_ch = MockLoader::insert(Call, {
 		move |ctx, _| {
 			// Instantiate a contract and save it's address in `instantiated_contract_address`.
-			let min_balance = <Test as Config>::Currency::minimum_balance();
+			let min_balance = Pallet::<Test>::min_balance();
 			let value = Pallet::<Test>::convert_native_to_evm(min_balance);
 
 			assert_matches!(
@@ -1448,7 +1448,7 @@ fn recursive_call_during_constructor_is_balance_transfer() {
 		.with_code_hashes(MockLoader::code_hashes())
 		.build()
 		.execute_with(|| {
-			let min_balance = <Test as Config>::Currency::minimum_balance();
+			let min_balance = Pallet::<Test>::min_balance();
 			let mut meter =
 				TransactionMeter::<Test>::new_from_limits(WEIGHT_LIMIT, deposit_limit::<Test>())
 					.unwrap();
@@ -1494,7 +1494,7 @@ fn cannot_send_more_balance_than_available_to_self() {
 		.with_code_hashes(MockLoader::code_hashes())
 		.build()
 		.execute_with(|| {
-			let min_balance = <Test as Config>::Currency::minimum_balance();
+			let min_balance = Pallet::<Test>::min_balance();
 			let mut meter = TransactionMeter::<Test>::new_from_limits(WEIGHT_LIMIT, 0).unwrap();
 			set_balance(&ALICE, min_balance * 10);
 			place_contract(&BOB, code_hash);
@@ -1619,7 +1619,7 @@ fn call_deny_reentry() {
 
 #[test]
 fn minimum_balance_must_return_converted_balance() {
-	let min_balance: BalanceOf<Test> = <Test as Config>::Currency::minimum_balance();
+	let min_balance: BalanceOf<Test> = Pallet::<Test>::min_balance();
 	let min_balance_evm_value: U256 = Pallet::<Test>::convert_native_to_evm(min_balance);
 
 	let succ_fail_code = MockLoader::insert(Constructor, move |ctx, _| {
@@ -1713,7 +1713,7 @@ fn nonce() {
 		.with_code_hashes(MockLoader::code_hashes())
 		.build()
 		.execute_with(|| {
-			let min_balance = <Test as Config>::Currency::minimum_balance();
+			let min_balance = Pallet::<Test>::min_balance();
 			let min_balance_evm_value: U256 = Pallet::<Test>::convert_native_to_evm(min_balance);
 
 			let mut meter =
@@ -1824,7 +1824,7 @@ fn set_storage_works() {
 	});
 
 	ExtBuilder::default().build().execute_with(|| {
-		let min_balance = <Test as Config>::Currency::minimum_balance();
+		let min_balance = Pallet::<Test>::min_balance();
 
 		let mut meter =
 			TransactionMeter::<Test>::new_from_limits(WEIGHT_LIMIT, deposit_limit::<Test>())
@@ -1923,7 +1923,7 @@ fn set_storage_varsized_key_works() {
 	});
 
 	ExtBuilder::default().build().execute_with(|| {
-		let min_balance = <Test as Config>::Currency::minimum_balance();
+		let min_balance = Pallet::<Test>::min_balance();
 
 		set_balance(&ALICE, min_balance * 1000);
 		place_contract(&BOB, code_hash);
@@ -1961,7 +1961,7 @@ fn get_storage_works() {
 	});
 
 	ExtBuilder::default().build().execute_with(|| {
-		let min_balance = <Test as Config>::Currency::minimum_balance();
+		let min_balance = Pallet::<Test>::min_balance();
 
 		set_balance(&ALICE, min_balance * 1000);
 		place_contract(&BOB, code_hash);
@@ -1999,7 +1999,7 @@ fn get_storage_size_works() {
 	});
 
 	ExtBuilder::default().build().execute_with(|| {
-		let min_balance = <Test as Config>::Currency::minimum_balance();
+		let min_balance = Pallet::<Test>::min_balance();
 
 		set_balance(&ALICE, min_balance * 1000);
 		place_contract(&BOB, code_hash);
@@ -2048,7 +2048,7 @@ fn get_storage_varsized_key_works() {
 	});
 
 	ExtBuilder::default().build().execute_with(|| {
-		let min_balance = <Test as Config>::Currency::minimum_balance();
+		let min_balance = Pallet::<Test>::min_balance();
 
 		set_balance(&ALICE, min_balance * 1000);
 		place_contract(&BOB, code_hash);
@@ -2097,7 +2097,7 @@ fn get_storage_size_varsized_key_works() {
 	});
 
 	ExtBuilder::default().build().execute_with(|| {
-		let min_balance = <Test as Config>::Currency::minimum_balance();
+		let min_balance = Pallet::<Test>::min_balance();
 
 		set_balance(&ALICE, min_balance * 1000);
 		place_contract(&BOB, code_hash);
@@ -2414,7 +2414,7 @@ fn last_frame_output_works_on_instantiate() {
 	let trap_ch = MockLoader::insert(Constructor, |_, _| Err("It's a trap!".into()));
 	let instantiator_ch = MockLoader::insert(Call, {
 		move |ctx, _| {
-			let min_balance = <Test as Config>::Currency::minimum_balance();
+			let min_balance = Pallet::<Test>::min_balance();
 			let value = Pallet::<Test>::convert_native_to_evm(min_balance);
 
 			// Successful instantiation should set the output
@@ -2632,7 +2632,7 @@ fn immutable_data_access_checks_work() {
 	});
 	let instantiator_ch = MockLoader::insert(Call, {
 		move |ctx, _| {
-			let min_balance = <Test as Config>::Currency::minimum_balance();
+			let min_balance = Pallet::<Test>::min_balance();
 			let value = Pallet::<Test>::convert_native_to_evm(min_balance);
 
 			assert_eq!(
@@ -2806,7 +2806,7 @@ fn immutable_data_set_errors_with_empty_data() {
 	});
 	let instantiator_ch = MockLoader::insert(Call, {
 		move |ctx, _| {
-			let min_balance = <Test as Config>::Currency::minimum_balance();
+			let min_balance = Pallet::<Test>::min_balance();
 			let value = Pallet::<Test>::convert_native_to_evm(min_balance);
 
 			ctx.ext

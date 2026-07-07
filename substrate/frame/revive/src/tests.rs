@@ -197,8 +197,7 @@ pub mod test_utils {
 	}
 
 	pub fn set_balance_with_dust(address: &H160, value: BalanceWithDust<BalanceOf<Test>>) {
-		use frame_support::traits::Currency;
-		let ed = <Test as Config>::Currency::minimum_balance();
+		let ed = Contracts::min_balance();
 		let (value, dust) = value.deconstruct();
 		let account_id = <Test as Config>::AddressMapper::to_account_id(&address);
 		<Test as Config>::Currency::set_balance(&account_id, ed + value);
