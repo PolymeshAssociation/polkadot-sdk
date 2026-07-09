@@ -111,6 +111,10 @@ macro_rules! assert_refcount {
 	}};
 }
 
+pub fn extra_evm_balance() -> U256 {
+	crate::extra_evm_balance::<Test>()
+}
+
 pub mod test_utils {
 	use super::{
 		BalanceWithDust, CodeHashLockupDepositPercent, Contracts, DepositPerByte, DepositPerItem,
@@ -263,12 +267,17 @@ impl Test {
 	}
 }
 
+#[cfg(not(feature = "test_zero_ed"))]
+const ED: u128 = 1;
+#[cfg(feature = "test_zero_ed")]
+const ED: u128 = 0;
+
 parameter_types! {
 	pub BlockWeights: frame_system::limits::BlockWeights =
 		frame_system::limits::BlockWeights::simple_max(
 			Weight::from_parts(2 * WEIGHT_REF_TIME_PER_SECOND, 10 * 1024 * 1024),
 		);
-	pub static ExistentialDeposit: u128 = 1;
+	pub static ExistentialDeposit: u128 = ED;
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -627,7 +636,7 @@ fn ext_builder_with_genesis_config_works() {
 		assert!(<Test as Config>::AddressMapper::is_mapped(&EVE));
 
 		// EOA is created
-		assert_eq!(Pallet::<Test>::evm_balance(&eoa.address), eoa.balance);
+		assert_eq!(Pallet::<Test>::evm_balance(&eoa.address), eoa.balance + extra_evm_balance());
 
 		// Contract is created
 		for contract in [pvm_contract, evm_contract] {
@@ -643,7 +652,7 @@ fn ext_builder_with_genesis_config_works() {
 				contract_data.code.0
 			);
 			assert_eq!(Pallet::<Test>::evm_nonce(&contract.address), contract.nonce);
-			assert_eq!(Pallet::<Test>::evm_balance(&contract.address), contract.balance);
+			assert_eq!(Pallet::<Test>::evm_balance(&contract.address), contract.balance + extra_evm_balance());
 
 			for (key, value) in contract_data.storage.iter() {
 				assert_eq!(

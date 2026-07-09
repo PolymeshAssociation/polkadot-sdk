@@ -4488,7 +4488,7 @@ fn pure_precompile_works() {
 
 			assert_eq!(
 				Pallet::<Test>::evm_balance(&precompile_addr),
-				U256::from(100),
+				U256::from(100) + extra_evm_balance(),
 				"{description}: unexpected balance"
 			);
 			assert_eq!(
@@ -4635,7 +4635,7 @@ fn precompiles_with_info_creates_contract() {
 			// a pre-compile with contract info should create an account on first call
 			assert!(get_contract_checked(&precompile_addr).is_some());
 			assert!(System::account_exists(&id));
-			assert_eq!(Pallet::<Test>::evm_balance(&precompile_addr), U256::from(0));
+			assert_eq!(Pallet::<Test>::evm_balance(&precompile_addr), U256::from(0) + extra_evm_balance());
 
 			assert_eq!(result.flags, ReturnFlags::empty());
 			assert_eq!(u32::from_le_bytes(result.data[..4].try_into().unwrap()), error_code as u32);

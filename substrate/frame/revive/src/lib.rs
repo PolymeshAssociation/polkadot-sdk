@@ -129,6 +129,16 @@ type TrieId = BoundedVec<u8, ConstU32<128>>;
 type ImmutableData = BoundedVec<u8, ConstU32<{ limits::IMMUTABLE_BYTES }>>;
 type CallOf<T> = <T as Config>::RuntimeCall;
 
+// If the chain ExistentialDeposit (T::Currency::minimum_balance) is zero,
+// then `min_balance()` will return `1`, to create the contract account.
+// We need the difference of these two values to fix the asserts in the benchmarks.
+#[cfg(any(feature = "runtime-benchmarks", test))]
+fn extra_evm_balance<T: Config>() -> U256 {
+	let extra = Pallet::<T>::min_balance().saturating_sub(T::Currency::minimum_balance());
+	let balance = BalanceWithDust::new_unchecked::<T>(extra, 0u32.into());
+	Pallet::<T>::convert_native_to_evm(balance)
+}
+
 /// Used as a sentinel value when reading and writing contract memory.
 ///
 /// It is usually used to signal `None` to a contract when only a primitive is allowed

@@ -188,7 +188,7 @@ mod tests {
 	use crate::{
 		Config, Error, H160, Pallet,
 		test_utils::{ALICE, ALICE_ADDR, BOB_ADDR},
-		tests::{BurnDestination, ExtBuilder, Test, builder, test_utils::set_balance_with_dust},
+		tests::{BurnDestination, ExtBuilder, Test, builder, extra_evm_balance, test_utils::set_balance_with_dust},
 	};
 	use frame_support::{
 		assert_err, assert_ok,
@@ -474,7 +474,7 @@ mod tests {
 
 				assert_eq!(
 					Pallet::<Test>::evm_balance(&ALICE_ADDR),
-					Pallet::<Test>::convert_native_to_evm(expected_balance),
+					Pallet::<Test>::convert_native_to_evm(expected_balance) + extra_evm_balance(),
 					"{description}: invalid balance"
 				);
 
@@ -515,7 +515,7 @@ mod tests {
 				Pallet::<Test>::evm_balance(&ALICE_ADDR),
 				Pallet::<Test>::convert_native_to_evm(BalanceWithDust::new_unchecked::<Test>(
 					10, 0
-				)),
+				)) + extra_evm_balance(),
 			);
 		});
 	}

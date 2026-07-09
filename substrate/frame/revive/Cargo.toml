@@ -158,3 +158,4 @@ try-runtime = [
 	"sp-runtime/try-runtime",
 ]
 trybuild = []
+test_zero_ed = ["pallet-balances/insecure_zero_ed"]

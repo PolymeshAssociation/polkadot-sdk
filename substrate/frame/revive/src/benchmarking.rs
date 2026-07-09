@@ -69,18 +69,6 @@ use sp_consensus_babe::{
 use sp_consensus_slots::Slot;
 use sp_runtime::{generic::DigestItem, traits::Zero};
 
-// If the chain ExistentialDeposit (T::Currency::minimum_balance) is zero,
-// then `min_balance()` will return `1`, to create the contract account.
-// We need the difference of these two values to fix the asserts in the benchmarks.
-fn extra_balance<T: Config>() -> BalanceOf<T> {
-	Pallet::<T>::min_balance().saturating_sub(T::Currency::minimum_balance())
-}
-
-fn extra_evm_balance<T: Config>() -> U256 {
-	let balance = BalanceWithDust::new_unchecked::<T>(extra_balance::<T>(), 0u32.into());
-	Pallet::<T>::convert_native_to_evm(balance)
-}
-
 /// How many runs we do per API benchmark.
 ///
 /// This is picked more or less arbitrary. We experimented with different numbers until
