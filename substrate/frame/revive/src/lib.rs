@@ -2547,6 +2547,7 @@ impl<T: Config> Pallet<T> {
 
 		match (exec_config.collect_deposit_from_hold.is_some(), hold_reason) {
 			(true, hold_reason) => {
+				log::debug!(target: LOG_TARGET, "resolve and hold({to:?}) amount={amount:?}");
 				T::FeeInfo::withdraw_txfee(amount)
 					.ok_or(())
 					.and_then(|credit| {
@@ -2569,6 +2570,7 @@ impl<T: Config> Pallet<T> {
 					.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds)?;
 			},
 			(false, Some(hold_reason)) => {
+				log::debug!(target: LOG_TARGET, "transfer_and_hold({from:?}, {to:?}, {amount:?})");
 				T::Currency::transfer_and_hold(
 					&hold_reason.into(),
 					from,
@@ -2584,6 +2586,7 @@ impl<T: Config> Pallet<T> {
 				.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds)?;
 			},
 			(false, None) => {
+				log::debug!(target: LOG_TARGET, "transfer({from:?}, {to:?}, {amount:?})");
 				T::Currency::transfer(from, to, amount, Preservation::Preserve)
 					.inspect_err(|err| {
 						log::debug!(target: LOG_TARGET, "transfer({from:?}, {to:?}, {amount:?}): err={err:?}");

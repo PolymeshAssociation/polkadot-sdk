@@ -278,6 +278,7 @@ impl<T: Config<I>, I: 'static> fungible::InspectHold<T::AccountId> for Pallet<T,
 			.map_or_else(Zero::zero, |x| x.amount)
 	}
 	fn hold_available(reason: &Self::Reason, who: &T::AccountId) -> bool {
+		log::debug!(target: LOG_TARGET, "hold_available(reason, {who:?})");
 		if frame_system::Pallet::<T>::providers(who) == 0 {
 			log::debug!(target: LOG_TARGET, "hold_available(reason, {who:?}) No providers.");
 			return false;
