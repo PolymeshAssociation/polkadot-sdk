@@ -2549,10 +2549,20 @@ impl<T: Config> Pallet<T> {
 			(true, hold_reason) => {
 				T::FeeInfo::withdraw_txfee(amount)
 					.ok_or(())
-					.and_then(|credit| T::Currency::resolve(to, credit).map_err(|_| ()))
+					.and_then(|credit| {
+						T::Currency::resolve(to, credit)
+							.inspect_err(|err| {
+								log::debug!(target: LOG_TARGET, "resolve({to:?}, credit): err={err:?}");
+							})
+							.map_err(|_| ())
+					})
 					.and_then(|_| {
 						if let Some(hold_reason) = hold_reason {
-							T::Currency::hold(&hold_reason.into(), to, amount).map_err(|_| ())?;
+							T::Currency::hold(&hold_reason.into(), to, amount)
+								.inspect_err(|err| {
+									log::debug!(target: LOG_TARGET, "hold({to:?}, {amount:?}): err={err:?}");
+								})
+								.map_err(|_| ())?;
 						}
 						Ok(())
 					})
@@ -2568,10 +2578,16 @@ impl<T: Config> Pallet<T> {
 					Preservation::Preserve,
 					Fortitude::Polite,
 				)
+				.inspect_err(|err| {
+					log::debug!(target: LOG_TARGET, "transfer_and_hold({from:?}, {to:?}, {amount:?}): err={err:?}");
+				})
 				.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds)?;
 			},
 			(false, None) => {
 				T::Currency::transfer(from, to, amount, Preservation::Preserve)
+					.inspect_err(|err| {
+						log::debug!(target: LOG_TARGET, "transfer({from:?}, {to:?}, {amount:?}): err={err:?}");
+					})
 					.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds)?;
 			},
 		}
