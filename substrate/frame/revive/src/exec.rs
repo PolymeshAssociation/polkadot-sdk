@@ -1127,6 +1127,13 @@ where
 						},
 					)
 				};
+
+				// A contract here would be permanently shadowed: pre-compiles take precedence on
+				// every lookup, so it could never be called, terminated or refunded.
+				if is_precompile::<T, E>(&address) {
+					return Err(Error::<T>::DuplicateContract.into());
+				}
+
 				let contract = ContractInfo::new(
 					&address,
 					<System<T>>::account_nonce(&sender),
@@ -1786,6 +1793,16 @@ where
 		top_frame_mut!(self)
 	}
 
+	/// Code that exists only virtually and is never written to `PristineCode`.
+	fn virtual_code(&self, address: &H160) -> Option<&[u8]> {
+		<AllPrecompiles<T>>::code(address.as_fixed_bytes()).or_else(|| {
+			self.exec_config
+				.mock_handler
+				.as_ref()
+				.and_then(|handler| handler.mocked_code(*address))
+		})
+	}
+
 	/// Iterator over all frames.
 	///
 	/// The iterator starts with the top frame and ends with the root frame.
@@ -2268,12 +2285,7 @@ where
 	}
 
 	fn code_hash(&self, address: &H160) -> H256 {
-		if let Some(code) = <AllPrecompiles<T>>::code(address.as_fixed_bytes()).or_else(|| {
-			self.exec_config
-				.mock_handler
-				.as_ref()
-				.and_then(|handler| handler.mocked_code(*address))
-		}) {
+		if let Some(code) = self.virtual_code(address) {
 			return sp_io::hashing::keccak_256(code).into();
 		}
 
@@ -2288,12 +2300,7 @@ where
 	}
 
 	fn code_size(&self, address: &H160) -> u64 {
-		if let Some(code) = <AllPrecompiles<T>>::code(address.as_fixed_bytes()).or_else(|| {
-			self.exec_config
-				.mock_handler
-				.as_ref()
-				.and_then(|handler| handler.mocked_code(*address))
-		}) {
+		if let Some(code) = self.virtual_code(address) {
 			return code.len() as u64;
 		}
 
@@ -2439,15 +2446,20 @@ where
 			return;
 		}
 
-		let code_hash = self.code_hash(address);
-		let code = crate::PristineCode::<T>::get(&code_hash).unwrap_or_default();
+		let copy = |buf: &mut [u8], code: &[u8]| {
+			let len = len.min(code.len().saturating_sub(code_offset));
+			if len > 0 {
+				buf[..len].copy_from_slice(&code[code_offset..code_offset + len]);
+			}
+			buf[len..].fill(0);
+		};
 
-		let len = len.min(code.len().saturating_sub(code_offset));
-		if len > 0 {
-			buf[..len].copy_from_slice(&code[code_offset..code_offset + len]);
+		if let Some(code) = self.virtual_code(address) {
+			return copy(buf, code);
 		}
 
-		buf[len..].fill(0);
+		let code_hash = self.code_hash(address);
+		copy(buf, &crate::PristineCode::<T>::get(&code_hash).unwrap_or_default());
 	}
 
 	fn terminate_caller(&mut self, beneficiary: &H160) -> Result<(), DispatchError> {
