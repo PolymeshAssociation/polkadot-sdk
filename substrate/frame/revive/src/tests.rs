@@ -17,7 +17,7 @@
 
 mod block_hash;
 mod pallet_dummy;
-mod precompiles;
+pub(crate) mod precompiles;
 mod pvm;
 mod sol;
 mod stipends;
