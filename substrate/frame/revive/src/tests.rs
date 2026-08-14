@@ -28,9 +28,14 @@ use std::collections::HashMap;
 
 use crate::{
 	self as pallet_revive, AccountId32Mapper, AddressMapper, BalanceOf, BalanceWithDust, Call,
+<<<<<<< HEAD
 	CodeInfoOf, Config, DelegateInfo, ExecOrigin as Origin, ExecReturnValue, GenesisConfig,
 	OriginFor, Pallet, PristineCode,
 	deposit_payment::PGasDeposit,
+=======
+	CodeInfoOf, Config, DelegateInfo, DispatchRuntimeCall, ExecOrigin as Origin, ExecReturnValue,
+	GenesisConfig, OriginFor, Pallet, PristineCode,
+>>>>>>> baed90d211a (Add a dispatch runtime call hook into Revive.)
 	evm::{
 		fees::{BlockRatioFee, Info as FeeInfo},
 		runtime::{EthExtra, SetWeightLimit},
@@ -44,7 +49,11 @@ use frame_support::{
 	pallet_prelude::EnsureOrigin,
 	parameter_types,
 	traits::{
+<<<<<<< HEAD
 		AsEnsureOriginWithArg, ConstU32, ConstU128, FindAuthor, OriginTrait, StorageVersion,
+=======
+		ConstU32, ConstU128, FindAuthor, GetCallMetadata, OriginTrait, StorageVersion,
+>>>>>>> baed90d211a (Add a dispatch runtime call hook into Revive.)
 		tokens::imbalance::ResolveTo,
 	},
 	weights::{FixedFee, Weight, constants::WEIGHT_REF_TIME_PER_SECOND},
@@ -422,7 +431,33 @@ parameter_types! {
 	pub CheckingAccount: AccountId32 = BOB.clone();
 	pub BurnDestination: AccountId32 = AccountId32::new([42u8; 32]);
 	pub static DebugFlag: bool = false;
+<<<<<<< HEAD
 	pub static AutoMapFlag: bool = false;
+=======
+	pub static DispatchedCalls: Vec<(&'static str, &'static str)> = Vec::new();
+}
+
+/// Records the metadata of every call routed through [`Config::DispatchHook`].
+///
+/// The `GetCallMetadata` bound mirrors how a runtime is expected to use the hook: to recover the
+/// inner extrinsic's identity, which is otherwise hidden behind the `pallet_revive` extrinsic.
+pub struct RecordingDispatchHook<T>(core::marker::PhantomData<T>);
+
+impl<T> DispatchRuntimeCall<<T as Config>::RuntimeCall> for RecordingDispatchHook<T>
+where
+	T: Config,
+	<T as Config>::RuntimeCall: GetCallMetadata,
+{
+	fn dispatch(
+		call: <T as Config>::RuntimeCall,
+		origin: OriginFor<T>,
+	) -> sp_runtime::DispatchResultWithInfo<frame_support::dispatch::PostDispatchInfo> {
+		use sp_runtime::traits::Dispatchable;
+		let meta = call.get_call_metadata();
+		DispatchedCalls::mutate(|calls| calls.push((meta.pallet_name, meta.function_name)));
+		call.dispatch(origin)
+	}
+>>>>>>> baed90d211a (Add a dispatch runtime call hook into Revive.)
 }
 
 impl FindAuthor<<Test as frame_system::Config>::AccountId> for Test {
@@ -440,6 +475,7 @@ impl Config for Test {
 	type AddressMapper = AccountId32Mapper<Self>;
 	type Balance = u128;
 	type Currency = Balances;
+	type DispatchHook = RecordingDispatchHook<Self>;
 	type DepositPerByte = DepositPerByte;
 	type DepositPerItem = DepositPerItem;
 	type DepositPerChildTrieItem = DepositPerItem;
