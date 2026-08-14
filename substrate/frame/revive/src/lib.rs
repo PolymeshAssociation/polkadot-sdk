@@ -85,7 +85,8 @@ use frame_system::{
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
-	AccountId32, DispatchError, FixedPointNumber, FixedU128, SaturatedConversion,
+	AccountId32, DispatchError, DispatchResultWithInfo, FixedPointNumber, FixedU128,
+	SaturatedConversion,
 	traits::{
 		BadOrigin, Bounded, Convert, Dispatchable, Saturating, UniqueSaturatedFrom,
 		UniqueSaturatedInto, Zero,
@@ -143,6 +144,32 @@ const SENTINEL: u32 = u32::MAX;
 ///
 /// Example: `RUST_LOG=runtime::revive=debug my_code --dev`
 const LOG_TARGET: &str = "runtime::revive";
+
+/// Dispatches a runtime call that this pallet executes on behalf of an Ethereum transaction.
+///
+/// This allows a runtime to observe or wrap those dispatches, for example to expose the inner
+/// call to permission checks that would otherwise only see the `pallet-revive` extrinsic.
+pub trait DispatchRuntimeCall<Call: Dispatchable> {
+	/// The weight consumed by the hook itself, on top of the call's own weight.
+	fn weight() -> Weight {
+		Weight::zero()
+	}
+
+	/// Dispatch `call` with `origin`.
+	fn dispatch(
+		call: Call,
+		origin: Call::RuntimeOrigin,
+	) -> DispatchResultWithInfo<Call::PostInfo>;
+}
+
+impl<Call: Dispatchable> DispatchRuntimeCall<Call> for () {
+	fn dispatch(
+		call: Call,
+		origin: Call::RuntimeOrigin,
+	) -> DispatchResultWithInfo<Call::PostInfo> {
+		call.dispatch(origin)
+	}
+}
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -208,6 +235,12 @@ pub mod pallet {
 			+ From<Call<Self>>
 			+ IsSubType<Call<Self>>
 			+ GetDispatchInfo;
+
+		/// Wraps the dispatch of runtime calls made on behalf of an Ethereum transaction.
+		///
+		/// Set to `()` to dispatch them directly.
+		#[pallet::no_default_bounds]
+		type DispatchHook: DispatchRuntimeCall<<Self as Config>::RuntimeCall>;
 
 		/// The overarching origin type.
 		#[pallet::no_default_bounds]
@@ -430,6 +463,8 @@ pub mod pallet {
 
 			#[inject_runtime_type]
 			type RuntimeCall = ();
+
+			type DispatchHook = ();
 
 			#[inject_runtime_type]
 			type RuntimeOrigin = ();
@@ -1419,7 +1454,11 @@ pub mod pallet {
 		/// * `call`: The Substrate runtime call to execute.
 		/// * `transaction_encoded`: The RLP encoding of the Ethereum transaction,
 		#[pallet::call_index(12)]
-		#[pallet::weight(T::WeightInfo::eth_substrate_call(transaction_encoded.len() as u32).saturating_add(call.get_dispatch_info().call_weight))]
+		#[pallet::weight(
+			T::WeightInfo::eth_substrate_call(transaction_encoded.len() as u32)
+			.saturating_add(call.get_dispatch_info().call_weight)
+			.saturating_add(T::DispatchHook::weight())
+		)]
 		pub fn eth_substrate_call(
 			origin: OriginFor<T>,
 			call: Box<<T as Config>::RuntimeCall>,
@@ -1429,11 +1468,13 @@ pub mod pallet {
 			// re-enter `eth_substrate_call` (which requires `Origin::EthTransaction`).
 			let signer = Self::ensure_eth_signed(origin)?;
 			let weight_overhead =
-				T::WeightInfo::eth_substrate_call(transaction_encoded.len() as u32);
+				T::WeightInfo::eth_substrate_call(transaction_encoded.len() as u32)
+					.saturating_add(T::DispatchHook::weight());
 
 			block_storage::with_ethereum_context::<T>(transaction_encoded, || {
 				let call_weight = call.get_dispatch_info().call_weight;
-				let mut call_result = call.dispatch(RawOrigin::Signed(signer).into());
+				let mut call_result =
+					T::DispatchHook::dispatch(*call, RawOrigin::Signed(signer).into());
 
 				// Add extrinsic_overhead to the actual weight in PostDispatchInfo
 				match &mut call_result {
@@ -1564,7 +1605,9 @@ pub mod pallet {
 		#[pallet::weight({
 			let dispatch_info = call.get_dispatch_info();
 			(
-				<T as Config>::WeightInfo::dispatch_as_fallback_account().saturating_add(dispatch_info.call_weight),
+				<T as Config>::WeightInfo::dispatch_as_fallback_account()
+					.saturating_add(dispatch_info.call_weight)
+					.saturating_add(T::DispatchHook::weight()),
 				dispatch_info.class
 			)
 		})]
@@ -1576,7 +1619,7 @@ pub mod pallet {
 			let origin = ensure_signed(origin)?;
 			let unmapped_account =
 				T::AddressMapper::to_fallback_account_id(&T::AddressMapper::to_address(&origin));
-			call.dispatch(RawOrigin::Signed(unmapped_account).into())
+			T::DispatchHook::dispatch(*call, RawOrigin::Signed(unmapped_account).into())
 		}
 	}
 }
@@ -2046,7 +2089,7 @@ impl<T: Config> Pallet<T> {
 					};
 
 					if let Err(result) =
-						dispatch_call.clone().dispatch(RawOrigin::Signed(origin).into())
+						T::DispatchHook::dispatch(dispatch_call, RawOrigin::Signed(origin).into())
 					{
 						return Err(EthTransactError::Message(format!(
 							"Failed to dispatch call: {:?}",

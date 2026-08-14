@@ -1549,6 +1549,7 @@ impl pallet_revive::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
 	type RuntimeOrigin = RuntimeOrigin;
+	type DispatchHook = ();
 	type DepositPerItem = DepositPerItem;
 	type DepositPerChildTrieItem = DepositPerChildTrieItem;
 	type DepositPerByte = DepositPerByte;

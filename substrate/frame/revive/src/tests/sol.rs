@@ -551,6 +551,31 @@ fn eth_substrate_call_dispatches_successfully() {
 }
 
 #[test]
+fn dispatch_hook_is_invoked() {
+	use crate::tests::{DispatchedCalls, RuntimeCall};
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000);
+		let call: RuntimeCall = frame_system::Call::remark { remark: vec![] }.into();
+
+		DispatchedCalls::set(Vec::new());
+		assert_ok!(Pallet::<Test>::eth_substrate_call(
+			Origin::EthTransaction(ALICE).into(),
+			Box::new(call.clone()),
+			vec![]
+		));
+		assert_eq!(DispatchedCalls::get(), vec![("System", "remark")]);
+
+		DispatchedCalls::set(Vec::new());
+		assert_ok!(Pallet::<Test>::dispatch_as_fallback_account(
+			RuntimeOrigin::signed(ALICE),
+			Box::new(call)
+		));
+		assert_eq!(DispatchedCalls::get(), vec![("System", "remark")]);
+	});
+}
+
+#[test]
 fn eth_substrate_call_requires_eth_origin() {
 	ExtBuilder::default().build().execute_with(|| {
 		let inner_call = frame_system::Call::remark { remark: vec![] };
