@@ -19,7 +19,7 @@
 
 mod api;
 pub use api::*;
-mod call;
+pub mod call;
 pub(crate) use call::*;
 mod tracing;
 pub use tracing::*;

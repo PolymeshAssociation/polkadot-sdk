@@ -36,7 +36,7 @@ pub fn trace<R, F: FnOnce() -> R>(tracer: &mut (dyn Tracing + 'static), f: F) ->
 ///
 /// This is safe to be called from on-chain code as tracing will never be activated
 /// there. Hence the closure is not executed in this case.
-pub(crate) fn if_tracing<R, F: FnOnce(&mut (dyn Tracing + 'static)) -> R>(f: F) -> Option<R> {
+pub fn if_tracing<R, F: FnOnce(&mut (dyn Tracing + 'static)) -> R>(f: F) -> Option<R> {
 	tracer::with(f)
 }
 
