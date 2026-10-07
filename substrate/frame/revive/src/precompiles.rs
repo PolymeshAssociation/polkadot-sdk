@@ -39,11 +39,11 @@ pub use alloy_core as alloy;
 pub use sp_core::{H160, H256, U256};
 
 use crate::{
-	Config, Error as CrateError, exec::ExecResult, precompiles::builtin::Builtin,
-	primitives::ExecReturnValue,
+	Config, Error as CrateError, exec::ExecResult, limits::EVM_MEMORY_BYTES,
+	precompiles::builtin::Builtin, primitives::ExecReturnValue,
 };
 use alloc::vec::Vec;
-use alloy::sol_types::{Panic, PanicKind, Revert, SolError, SolInterface};
+use alloy::sol_types::{Panic, PanicKind, Revert, SolError, SolInterface, abi::AbiDecoderConfig};
 use core::num::NonZero;
 use pallet_revive_uapi::ReturnFlags;
 use sp_runtime::DispatchError;
@@ -62,6 +62,14 @@ const UNIMPLEMENTED: &str = "A precompile must either implement `call` or `call_
 /// REVERT`, so a pre-compile called through the EVM interpreter rather than through the
 /// pre-compile dispatch would revert rather than do something unexpected.
 pub const EVM_REVERT: [u8; 5] = sp_core::hex2array!("60006000fd");
+
+/// The default configuration for the ABI decoder used in pre-compiles.
+///
+/// This configuration enables validation and sets a memory limit for the ABI decoder.
+pub const DEFAULT_ABI_DECODER_CONFIG: AbiDecoderConfig = AbiDecoderConfig::new()
+	.validate(true)
+	.strict(true)
+	.memory_limit(EVM_MEMORY_BYTES as usize);
 
 /// The composition of all available pre-compiles.
 ///
@@ -248,6 +256,12 @@ pub trait Precompile {
 	/// pre-compile matches.
 	const CODE: &[u8] = &EVM_REVERT;
 
+	/// The ABI decoder configuration used for this pre-compile.
+	///
+	/// This allows customizing how the input data is decoded according to the Solidity ABI.
+	/// By default, it uses `DEFAULT_ABI_DECODER_CONFIG`.
+	const ABI_DECODER_CONFIG: AbiDecoderConfig = DEFAULT_ABI_DECODER_CONFIG;
+
 	/// Entry point for your pre-compile when `HAS_CONTRACT_INFO = false`.
 	#[allow(unused_variables)]
 	fn call(
@@ -281,6 +295,7 @@ pub(crate) trait BuiltinPrecompile {
 	const MATCHER: BuiltinAddressMatcher;
 	const HAS_CONTRACT_INFO: bool;
 	const CODE: &[u8] = &EVM_REVERT;
+	const ABI_DECODER_CONFIG: AbiDecoderConfig = DEFAULT_ABI_DECODER_CONFIG;
 
 	fn call(
 		_address: &[u8; 20],
@@ -390,6 +405,7 @@ impl<P: Precompile> BuiltinPrecompile for P {
 	const MATCHER: BuiltinAddressMatcher = P::MATCHER.into_builtin();
 	const HAS_CONTRACT_INFO: bool = P::HAS_CONTRACT_INFO;
 	const CODE: &[u8] = <P as Precompile>::CODE;
+	const ABI_DECODER_CONFIG: AbiDecoderConfig = P::ABI_DECODER_CONFIG;
 
 	fn call(
 		address: &[u8; 20],
@@ -420,8 +436,11 @@ impl<P: BuiltinPrecompile> PrimitivePrecompile for P {
 		env: &mut impl Ext<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
 		log::trace!(target: crate::LOG_TARGET, "pre-compile call at {:?} with {:x?}", address, input);
-		let call = <Self as BuiltinPrecompile>::Interface::abi_decode_validate(&input)
-			.map_err(|_| Error::Panic(PanicKind::ResourceError))?;
+		let call = <Self as BuiltinPrecompile>::Interface::abi_decode_with_config(
+			&input,
+			<Self as BuiltinPrecompile>::ABI_DECODER_CONFIG,
+		)
+		.map_err(|_| Error::Panic(PanicKind::ResourceError))?;
 		let res = <Self as BuiltinPrecompile>::call(address, &call, env);
 		log::trace!(target: crate::LOG_TARGET, "pre-compile call at {:?} result: {:x?}", address, res);
 		res
@@ -433,8 +452,11 @@ impl<P: BuiltinPrecompile> PrimitivePrecompile for P {
 		env: &mut impl ExtWithInfo<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
 		log::trace!(target: crate::LOG_TARGET, "pre-compile call_with_info at {:?} with {:x?}", address, input);
-		let call = <Self as BuiltinPrecompile>::Interface::abi_decode_validate(&input)
-			.map_err(|_| Error::Panic(PanicKind::ResourceError))?;
+		let call = <Self as BuiltinPrecompile>::Interface::abi_decode_with_config(
+			&input,
+			<Self as BuiltinPrecompile>::ABI_DECODER_CONFIG,
+		)
+		.map_err(|_| Error::Panic(PanicKind::ResourceError))?;
 		let res = <Self as BuiltinPrecompile>::call_with_info(address, &call, env);
 		log::trace!(target: crate::LOG_TARGET, "pre-compile call_with_info at {:?} result: {:x?}", address, res);
 		res
