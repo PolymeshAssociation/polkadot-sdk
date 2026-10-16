@@ -704,6 +704,8 @@ pub mod pallet {
 		/// The logs of the ethereum transaction would exceed
 		/// [`limits::MAX_RECEIPT_LOGS_BYTES`] in its receipt.
 		ReceiptTooLarge = 0x45,
+		/// Attempting to unmap an account when this operation is disabled.
+		UnmapAccountDisabled = 0x46,
 		/// Benchmarking only error.
 		#[cfg(feature = "runtime-benchmarks")]
 		BenchmarkingError = 0xFF,
@@ -1736,10 +1738,9 @@ pub mod pallet {
 		#[pallet::call_index(8)]
 		#[pallet::weight(<T as Config>::WeightInfo::unmap_account())]
 		pub fn unmap_account(origin: OriginFor<T>) -> DispatchResult {
-			#[cfg(not(feature = "runtime-benchmarks"))]
-			ensure!(!T::AutoMap::get(), <Error<T>>::AutoMappingEnabled);
-			let origin = ensure_signed(origin)?;
-			T::AddressMapper::unmap(&origin)
+			let _origin = ensure_signed(origin)?;
+			Err(Error::<T>::UnmapAccountDisabled.into())
+			// T::AddressMapper::unmap(&origin)
 		}
 
 		/// Dispatch an `call` with the origin set to the callers fallback address.

@@ -823,9 +823,11 @@ mod benchmarks {
 			T::AddressMapper::map(&caller).unwrap();
 		}
 		assert!(T::AddressMapper::is_mapped(&caller));
-		#[extrinsic_call]
-		_(origin);
-		assert!(!T::AddressMapper::is_mapped(&caller));
+		#[block]
+		{
+			assert!(<Contracts<T>>::unmap_account(origin.into()).is_err());
+		}
+		assert!(T::AddressMapper::is_mapped(&caller));
 	}
 
 	/// Worst case: every input account is not eth-derived, not yet mapped, and
