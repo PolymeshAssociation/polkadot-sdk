@@ -663,6 +663,8 @@ pub mod pallet {
 		PrecompileDelegateDenied = 0x40,
 		/// ECDSA public key recovery failed. Most probably wrong recovery id or signature.
 		EcdsaRecoveryFailed = 0x41,
+		/// Attempting to unmap an account when this operation is disabled.
+		UnmapAccountDisabled = 0x42,
 		/// Benchmarking only error.
 		#[cfg(feature = "runtime-benchmarks")]
 		BenchmarkingError = 0xFF,
@@ -1592,8 +1594,9 @@ pub mod pallet {
 		#[pallet::call_index(8)]
 		#[pallet::weight(<T as Config>::WeightInfo::unmap_account())]
 		pub fn unmap_account(origin: OriginFor<T>) -> DispatchResult {
-			let origin = ensure_signed(origin)?;
-			T::AddressMapper::unmap(&origin)
+			let _origin = ensure_signed(origin)?;
+			Err(Error::<T>::UnmapAccountDisabled.into())
+			// T::AddressMapper::unmap(&origin)
 		}
 
 		/// Dispatch an `call` with the origin set to the callers fallback address.

@@ -569,9 +569,11 @@ mod benchmarks {
 		let origin = RawOrigin::Signed(caller.clone());
 		<Contracts<T>>::map_account(origin.clone().into()).unwrap();
 		assert!(T::AddressMapper::is_mapped(&caller));
-		#[extrinsic_call]
-		_(origin);
-		assert!(!T::AddressMapper::is_mapped(&caller));
+		#[block]
+		{
+			assert!(<Contracts<T>>::unmap_account(origin.into()).is_err());
+		}
+		assert!(T::AddressMapper::is_mapped(&caller));
 	}
 
 	#[benchmark(pov_mode = Measured)]
