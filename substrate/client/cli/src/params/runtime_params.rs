@@ -17,7 +17,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use clap::Args;
-use std::str::FromStr;
+use std::{path::PathBuf, str::FromStr};
 
 /// Parameters used to config runtime.
 #[derive(Debug, Clone, Args)]
@@ -31,6 +31,10 @@ pub struct RuntimeParams {
 	/// Maximum number of different runtimes that can be cached.
 	#[arg(long, default_value_t = 2)]
 	pub runtime_cache_size: u8,
+
+	/// Directory for caching compiled Wasm runtimes.
+	#[arg(long, value_name = "PATH")]
+	pub runtime_cache_path: Option<PathBuf>,
 }
 
 fn parse_max_runtime_instances(s: &str) -> Result<usize, String> {

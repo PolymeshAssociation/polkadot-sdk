@@ -33,7 +33,7 @@ use sc_service::{
 	ChainSpec, Role,
 };
 use sc_telemetry::TelemetryEndpoints;
-use std::num::NonZeroU32;
+use std::{num::NonZeroU32, path::PathBuf};
 
 /// The `run` command used to run a node.
 #[derive(Debug, Clone, Parser)]
@@ -342,6 +342,10 @@ impl CliConfiguration for RunCmd {
 		Ok(self.runtime_params.runtime_cache_size)
 	}
 
+	fn runtime_cache_path(&self) -> Result<Option<PathBuf>> {
+		Ok(self.runtime_params.runtime_cache_path.clone())
+	}
+
 	fn base_path(&self) -> Result<Option<BasePath>> {
 		Ok(if self.tmp {
 			Some(BasePath::new_temp_dir()?)
@@ -386,6 +390,29 @@ pub fn is_node_name_valid(_name: &str) -> std::result::Result<(), &str> {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use clap::Parser;
+
+	#[derive(Parser)]
+	struct Cli {
+		#[command(flatten)]
+		run: RunCmd,
+	}
+
+	#[test]
+	fn runtime_cache_path_defaults_to_none() {
+		let cli = Cli::try_parse_from(["node"]).expect("default arguments are valid");
+		assert_eq!(cli.run.runtime_cache_path().expect("cache path is valid"), None);
+	}
+
+	#[test]
+	fn runtime_cache_path_is_forwarded() {
+		let cli = Cli::try_parse_from(["node", "--runtime-cache-path", "/tmp/wasm cache"])
+			.expect("cache path argument is valid");
+		assert_eq!(
+			cli.run.runtime_cache_path().expect("cache path is valid"),
+			Some(PathBuf::from("/tmp/wasm cache")),
+		);
+	}
 
 	#[test]
 	fn tests_node_name_good() {
