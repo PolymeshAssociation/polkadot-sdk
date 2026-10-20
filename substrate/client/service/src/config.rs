@@ -358,6 +358,8 @@ pub struct ExecutorConfiguration {
 	pub default_heap_pages: Option<u64>,
 	/// Maximum number of different runtime versions that can be cached.
 	pub runtime_cache_size: u8,
+	/// Directory for caching compiled Wasm runtimes.
+	pub runtime_cache_path: Option<PathBuf>,
 }
 
 impl Default for ExecutorConfiguration {
@@ -367,6 +369,7 @@ impl Default for ExecutorConfiguration {
 			max_runtime_instances: 8,
 			default_heap_pages: None,
 			runtime_cache_size: 2,
+			runtime_cache_path: None,
 		}
 	}
 }
