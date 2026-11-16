@@ -434,8 +434,8 @@ fn reserved_balance_should_prevent_reclaim_count() {
 			// "reserve" account reduced to 255 (below ED) so account no longer consuming
 			assert_ok!(System::dec_providers(&2));
 			assert_eq!(System::providers(&2), 0);
-			// account deleted
-			assert_eq!(System::account_nonce(&2), 0); // nonce zero
+			// POLYMESH: reaping is disabled, the nonce must survive to prevent replays.
+			assert_eq!(System::account_nonce(&2), 1);
 			assert_eq!(Balances::total_balance(&2), 0);
 
 			// account 4 tries to take index 1 again for account 6.
