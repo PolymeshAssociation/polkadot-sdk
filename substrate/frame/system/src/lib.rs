@@ -1702,6 +1702,10 @@ impl<T: Config> Pallet<T> {
 					(1, 0, 0) => {
 						// No providers left (and no consumers) and no sufficients. Account dead.
 
+						// POLYMESH: Disable reaping. Keep the entry so the nonce is preserved
+						account.providers = 0;
+						*maybe_account = Some(account);
+
 						Pallet::<T>::on_killed_account(who.clone());
 						Ok(DecRefStatus::Reaped)
 					},
@@ -1757,6 +1761,10 @@ impl<T: Config> Pallet<T> {
 				}
 				match (account.sufficients, account.providers) {
 					(0, 0) | (1, 0) => {
+						// POLYMESH: Disable reaping. Keep the entry so the nonce is preserved.
+						account.sufficients = 0;
+						*maybe_account = Some(account);
+
 						Pallet::<T>::on_killed_account(who.clone());
 						DecRefStatus::Reaped
 					},
