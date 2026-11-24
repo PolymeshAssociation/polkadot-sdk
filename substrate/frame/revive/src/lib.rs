@@ -1622,7 +1622,26 @@ pub mod pallet {
 			let origin = ensure_signed(origin)?;
 			let unmapped_account =
 				T::AddressMapper::to_fallback_account_id(&T::AddressMapper::to_address(&origin));
-			T::DispatchHook::dispatch(*call, RawOrigin::Signed(unmapped_account).into())
+
+			let weight_overhead = <T as Config>::WeightInfo::dispatch_as_fallback_account()
+				.saturating_add(T::DispatchHook::weight());
+			let call_weight = call.get_dispatch_info().call_weight;
+
+			let mut call_result =
+				T::DispatchHook::dispatch(*call, RawOrigin::Signed(unmapped_account).into());
+
+			// The inner call only reports its own weight
+			match &mut call_result {
+				Ok(post_info) | Err(DispatchErrorWithPostInfo { post_info, .. }) => {
+					post_info.actual_weight = Some(
+						post_info
+							.actual_weight
+							.unwrap_or(call_weight)
+							.saturating_add(weight_overhead),
+					);
+				},
+			}
+			call_result
 		}
 	}
 }
