@@ -39,7 +39,7 @@ impl From<NewBalanceWithDustInputPayloadV1> for NewBalanceWithDustInputPayload {
 
 pub struct NewBalanceWithDustOutputPayload<Balance> {
 	pub new_balance: Balance,
-	pub dust: u32,
+	pub dust: u64,
 }
 
 impl<Balance> From<NewBalanceWithDustOutputPayload<Balance>>

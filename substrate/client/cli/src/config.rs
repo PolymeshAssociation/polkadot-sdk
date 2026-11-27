@@ -217,6 +217,16 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		Ok(self.database_params().map(|x| x.database_cache_size()).unwrap_or_default())
 	}
 
+	/// Get the database max total wal size.
+	///
+	/// By default this is retrieved from `DatabaseParams` if it is available. Otherwise its `None`.
+	fn database_max_total_wal_size(&self) -> Result<Option<u64>> {
+		Ok(self
+			.database_params()
+			.map(|x| x.database_max_total_wal_size())
+			.unwrap_or_default())
+	}
+
 	/// Get the database backend variant.
 	///
 	/// By default this is retrieved from `DatabaseParams` if it is available. Otherwise its `None`.
@@ -229,6 +239,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		&self,
 		base_path: &PathBuf,
 		cache_size: usize,
+		max_total_wal_size: Option<u64>,
 		database: Database,
 	) -> Result<DatabaseSource> {
 		let role_dir = "full";
@@ -236,7 +247,9 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		let paritydb_path = base_path.join("paritydb").join(role_dir);
 		Ok(match database {
 			#[cfg(feature = "rocksdb")]
-			Database::RocksDb => DatabaseSource::RocksDb { path: rocksdb_path, cache_size },
+			Database::RocksDb => {
+				DatabaseSource::RocksDb { path: rocksdb_path, cache_size, max_total_wal_size }
+			},
 			Database::ParityDb => DatabaseSource::ParityDb { path: paritydb_path },
 			Database::ParityDbDeprecated => {
 				eprintln!(
@@ -245,7 +258,9 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 				);
 				DatabaseSource::ParityDb { path: paritydb_path }
 			},
-			Database::Auto => DatabaseSource::Auto { paritydb_path, rocksdb_path, cache_size },
+			Database::Auto => {
+				DatabaseSource::Auto { paritydb_path, rocksdb_path, cache_size, max_total_wal_size }
+			},
 		})
 	}
 
@@ -481,6 +496,13 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		Ok(2)
 	}
 
+	/// Get the directory for caching compiled Wasm runtimes.
+	///
+	/// By default this is `None`.
+	fn runtime_cache_path(&self) -> Result<Option<PathBuf>> {
+		Ok(None)
+	}
+
 	/// Activate or not the automatic announcing of blocks after import
 	///
 	/// By default this is `false`.
@@ -502,6 +524,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		let net_config_dir = build_net_config_dir(&config_dir);
 		let client_id = C::client_id();
 		let database_cache_size = self.database_cache_size()?.unwrap_or(1024);
+		let database_max_total_wal_size = self.database_max_total_wal_size()?;
 		let database = self.database()?.unwrap_or(
 			#[cfg(feature = "rocksdb")]
 			{
@@ -540,7 +563,12 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 				DCV::p2p_listen_port(),
 			)?,
 			keystore,
-			database: self.database_config(&config_dir, database_cache_size, database)?,
+			database: self.database_config(
+				&config_dir,
+				database_cache_size,
+				database_max_total_wal_size,
+				database,
+			)?,
 			data_path: config_dir,
 			trie_cache_maximum_size: self.trie_cache_maximum_size()?,
 			warm_up_trie_cache: self.warm_up_trie_cache()?,
@@ -551,6 +579,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 				default_heap_pages: self.default_heap_pages()?,
 				max_runtime_instances,
 				runtime_cache_size,
+				runtime_cache_path: self.runtime_cache_path()?,
 			},
 			wasm_runtime_overrides: self.wasm_runtime_overrides(),
 			rpc: RpcConfiguration {

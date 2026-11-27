@@ -217,8 +217,8 @@ pub mod v14 {
 			let in_code = Pallet::<T>::in_code_storage_version();
 			let on_chain = Pallet::<T>::on_chain_storage_version();
 
-			if in_code == 14 && on_chain == 13 {
-				in_code.put::<Pallet<T>>();
+			if in_code == 16 && on_chain == 13 {
+				frame_support::traits::StorageVersion::new(14).put::<Pallet<T>>();
 
 				log!(info, "staking v14 applied successfully.");
 				T::DbWeight::get().reads_writes(1, 1)

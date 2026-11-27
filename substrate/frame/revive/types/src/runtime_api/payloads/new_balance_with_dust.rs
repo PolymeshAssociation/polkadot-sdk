@@ -40,7 +40,7 @@ pub enum NewBalanceWithDustVersionedInputPayload {
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq)]
 pub struct NewBalanceWithDustOutputPayloadV1<Balance> {
 	pub new_balance: Balance,
-	pub dust: u32,
+	pub dust: u64,
 }
 
 /// The output type returned when calling the `new_balance_with_dust_versioned` runtime API

@@ -97,7 +97,8 @@ use frame_system::{
 use pallet_revive_types::runtime_api::*;
 use scale_info::TypeInfo;
 use sp_runtime::{
-	AccountId32, DispatchError, FixedPointNumber, FixedU128, SaturatedConversion,
+	AccountId32, DispatchError, DispatchResultWithInfo, FixedPointNumber, FixedU128,
+	SaturatedConversion,
 	traits::{
 		BadOrigin, Bounded, Convert, Dispatchable, Saturating, UniqueSaturatedFrom,
 		UniqueSaturatedInto, Zero,
@@ -159,6 +160,32 @@ const SENTINEL: u32 = u32::MAX;
 ///
 /// Example: `RUST_LOG=runtime::revive=debug my_code --dev`
 const LOG_TARGET: &str = "runtime::revive";
+
+/// Dispatches a runtime call that this pallet executes on behalf of an Ethereum transaction.
+///
+/// This allows a runtime to observe or wrap those dispatches, for example to expose the inner
+/// call to permission checks that would otherwise only see the `pallet-revive` extrinsic.
+pub trait DispatchRuntimeCall<Call: Dispatchable> {
+	/// The weight consumed by the hook itself, on top of the call's own weight.
+	fn weight() -> Weight {
+		Weight::zero()
+	}
+
+	/// Dispatch `call` with `origin`.
+	fn dispatch(
+		call: Call,
+		origin: Call::RuntimeOrigin,
+	) -> DispatchResultWithInfo<Call::PostInfo>;
+}
+
+impl<Call: Dispatchable> DispatchRuntimeCall<Call> for () {
+	fn dispatch(
+		call: Call,
+		origin: Call::RuntimeOrigin,
+	) -> DispatchResultWithInfo<Call::PostInfo> {
+		call.dispatch(origin)
+	}
+}
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -224,6 +251,12 @@ pub mod pallet {
 			+ From<Call<Self>>
 			+ IsSubType<Call<Self>>
 			+ GetDispatchInfo;
+
+		/// Wraps the dispatch of runtime calls made on behalf of an Ethereum transaction.
+		///
+		/// Set to `()` to dispatch them directly.
+		#[pallet::no_default_bounds]
+		type DispatchHook: DispatchRuntimeCall<<Self as Config>::RuntimeCall>;
 
 		/// The overarching origin type.
 		#[pallet::no_default_bounds]
@@ -338,7 +371,7 @@ pub mod pallet {
 
 		/// The ratio between the decimal representation of the native token and the ETH token.
 		#[pallet::constant]
-		type NativeToEthRatio: Get<u32>;
+		type NativeToEthRatio: Get<u64>;
 
 		/// Set to [`crate::evm::fees::Info`] for a production runtime.
 		///
@@ -461,6 +494,8 @@ pub mod pallet {
 			#[inject_runtime_type]
 			type RuntimeCall = ();
 
+			type DispatchHook = ();
+
 			#[inject_runtime_type]
 			type RuntimeOrigin = ();
 
@@ -477,7 +512,7 @@ pub mod pallet {
 			type RuntimeMemory = ConstU32<{ 128 * 1024 * 1024 }>;
 			type PVFMemory = ConstU32<{ 512 * 1024 * 1024 }>;
 			type ChainId = ConstU64<42>;
-			type NativeToEthRatio = ConstU32<1_000_000>;
+			type NativeToEthRatio = ConstU64<1_000_000>;
 			type FindAuthor = ();
 			type FeeInfo = ();
 			type Deposit = ();
@@ -551,7 +586,8 @@ pub mod pallet {
 		InputForwarded = 0x0E,
 		/// The amount of topics passed to `seal_deposit_events` exceeds the limit.
 		TooManyTopics = 0x0F,
-		/// A contract with the same AccountId already exists.
+		/// A contract with the same AccountId already exists, or the address is occupied by a
+		/// pre-compile.
 		DuplicateContract = 0x12,
 		/// A contract self destructed in its constructor.
 		///
@@ -668,6 +704,8 @@ pub mod pallet {
 		/// The logs of the ethereum transaction would exceed
 		/// [`limits::MAX_RECEIPT_LOGS_BYTES`] in its receipt.
 		ReceiptTooLarge = 0x45,
+		/// Attempting to unmap an account when this operation is disabled.
+		UnmapAccountDisabled = 0x46,
 		/// Benchmarking only error.
 		#[cfg(feature = "runtime-benchmarks")]
 		BenchmarkingError = 0xFF,
@@ -1484,6 +1522,7 @@ pub mod pallet {
 			T::WeightInfo::eth_substrate_call(transaction_encoded.len() as u32)
 			.saturating_add(call.get_dispatch_info().call_weight)
 			.saturating_add(T::WeightInfo::on_finalize_block_per_tx(transaction_encoded.len() as u32))
+			.saturating_add(T::DispatchHook::weight())
 		)]
 		pub fn eth_substrate_call(
 			origin: OriginFor<T>,
@@ -1496,11 +1535,13 @@ pub mod pallet {
 			Self::ensure_non_contract_if_signed(&OriginFor::<T>::signed(signer.clone()))?;
 			let tx_len = transaction_encoded.len() as u32;
 			let weight_overhead = T::WeightInfo::eth_substrate_call(tx_len)
-				.saturating_add(T::WeightInfo::on_finalize_block_per_tx(tx_len));
+				.saturating_add(T::WeightInfo::on_finalize_block_per_tx(tx_len))
+				.saturating_add(T::DispatchHook::weight());
 
 			block_storage::with_ethereum_context::<T>(transaction_encoded, || {
 				let call_weight = call.get_dispatch_info().call_weight;
-				let mut call_result = call.dispatch(RawOrigin::Signed(signer).into());
+				let mut call_result =
+					T::DispatchHook::dispatch(*call, RawOrigin::Signed(signer).into());
 
 				// Add extrinsic_overhead to the actual weight in PostDispatchInfo
 				match &mut call_result {
@@ -1697,10 +1738,9 @@ pub mod pallet {
 		#[pallet::call_index(8)]
 		#[pallet::weight(<T as Config>::WeightInfo::unmap_account())]
 		pub fn unmap_account(origin: OriginFor<T>) -> DispatchResult {
-			#[cfg(not(feature = "runtime-benchmarks"))]
-			ensure!(!T::AutoMap::get(), <Error<T>>::AutoMappingEnabled);
-			let origin = ensure_signed(origin)?;
-			T::AddressMapper::unmap(&origin)
+			let _origin = ensure_signed(origin)?;
+			Err(Error::<T>::UnmapAccountDisabled.into())
+			// T::AddressMapper::unmap(&origin)
 		}
 
 		/// Dispatch an `call` with the origin set to the callers fallback address.
@@ -1712,7 +1752,9 @@ pub mod pallet {
 		#[pallet::weight({
 			let dispatch_info = call.get_dispatch_info();
 			(
-				<T as Config>::WeightInfo::dispatch_as_fallback_account().saturating_add(dispatch_info.call_weight),
+				<T as Config>::WeightInfo::dispatch_as_fallback_account()
+					.saturating_add(dispatch_info.call_weight)
+					.saturating_add(T::DispatchHook::weight()),
 				dispatch_info.class
 			)
 		})]
@@ -1726,7 +1768,7 @@ pub mod pallet {
 				&T::AddressMapper::to_address(&account_id),
 			);
 			origin.set_caller_from(RawOrigin::Signed(unmapped_account));
-			call.dispatch(origin)
+			T::DispatchHook::dispatch(*call, origin)
 		}
 	}
 }
@@ -2281,7 +2323,7 @@ impl<T: Config> Pallet<T> {
 						};
 
 						if let Err(result) =
-							dispatch_call.clone().dispatch(RawOrigin::Signed(origin).into())
+							T::DispatchHook::dispatch(dispatch_call, RawOrigin::Signed(origin).into())
 						{
 							return Err(EthTransactError::Message(format!(
 								"Failed to dispatch call: {:?}",
@@ -2487,7 +2529,7 @@ impl<T: Config> Pallet<T> {
 	/// Adds the existential deposit and returns the native balance plus the dust.
 	pub fn new_balance_with_dust(
 		evm_value: U256,
-	) -> Result<(BalanceOf<T>, u32), BalanceConversionError> {
+	) -> Result<(BalanceOf<T>, u64), BalanceConversionError> {
 		let ed = T::Currency::minimum_balance();
 		let balance_with_dust = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(evm_value)?;
 		let (value, dust) = balance_with_dust.deconstruct();
@@ -3101,7 +3143,7 @@ sp_api::decl_runtime_apis! {
 
 		/// Construct the new balance and dust components of this EVM balance.
 		#[deprecated(note = "Use the versioned equivalent `new_balance_with_dust_versioned` if available on your runtime")]
-		fn new_balance_with_dust(balance: U256) -> Result<(Balance, u32), BalanceConversionError>;
+		fn new_balance_with_dust(balance: U256) -> Result<(Balance, u64), BalanceConversionError>;
 
 		/* Versioned Runtime APIs */
 
@@ -3636,7 +3678,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 						.account_id
 				}
 
-				fn new_balance_with_dust(balance: $crate::U256) -> Result<(Balance, u32), $crate::BalanceConversionError> {
+				fn new_balance_with_dust(balance: $crate::U256) -> Result<(Balance, u64), $crate::BalanceConversionError> {
 					use $crate::pallet_revive_types::runtime_api::*;
 
 					let input = NewBalanceWithDustVersionedInputPayload::from(
